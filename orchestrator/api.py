@@ -35,6 +35,7 @@ from pydantic import BaseModel  # noqa: E402
 
 from orchestrator import run_registry  # noqa: E402
 from orchestrator.pipeline import PipelineError, run_pipeline, run_trend_advisor_stage  # noqa: E402
+from orchestrator.pipeline import discovery_service  # noqa: E402 — for the clarify step
 from researchgenie import advisor_cli  # noqa: E402
 from shared.contracts.pipeline_contract import PipelineResult, ResearchRequest  # noqa: E402
 from shared.contracts.trend_contract import TrendAdvisorRequest, TrendAdvisorResult  # noqa: E402
@@ -79,6 +80,21 @@ async def start_research_run(request: ResearchRequest) -> dict[str, str]:
     run_id = uuid4().hex
     await run_registry.start_run(request, run_id, run_pipeline)
     return {"run_id": run_id}
+
+
+class QuestionCheck(BaseModel):
+    research_question: str
+
+
+@app.post("/research/clarify")
+async def clarify_research_question(check: QuestionCheck) -> dict[str, object]:
+    """The clarify step on its own, called by the page before it starts a run
+    so the user can accept, edit or keep the suggestion. available is false
+    when the model gave no usable answer: the page then keeps the question."""
+    clarified = await discovery_service.clarify_question(check.research_question)
+    if clarified is None:
+        return {"available": False, "specific": None, "missing": [], "suggested_question": ""}
+    return {"available": True, **clarified}
 
 
 @app.get("/research/runs/{run_id}")

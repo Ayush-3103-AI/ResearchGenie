@@ -25,15 +25,17 @@ sys.path.insert(0, str(ROOT))
 
 from rich.console import Console  # noqa: E402
 from rich.live import Live  # noqa: E402
+from rich.markup import escape  # noqa: E402
 from rich.prompt import Confirm, IntPrompt, Prompt  # noqa: E402
 
 from orchestrator.pipeline import PipelineError, run_pipeline  # noqa: E402
+from orchestrator.pipeline import discovery_service  # noqa: E402 — for the clarify step
 from researchgenie import config as rg_config  # noqa: E402
 from researchgenie import ollama_manager as om  # noqa: E402
 from researchgenie.setup_wizard import run_setup_wizard  # noqa: E402
 from researchgenie.theme import ERROR, MUTED, OK, WARN  # noqa: E402
 from researchgenie.tui import PipelineView, render_banner, render_completion, render_failure, render_summary  # noqa: E402
-from shared.contracts.pipeline_contract import ResearchRequest  # noqa: E402
+from shared.contracts.pipeline_contract import Clarification, ResearchRequest  # noqa: E402
 
 _TARGET_FORMATS = ["IEEE", "Springer"]
 
@@ -98,6 +100,7 @@ def _collect_request(console: Console) -> ResearchRequest:
     question = Prompt.ask("[bold]What are you researching?[/bold]")
     while not question.strip():
         question = Prompt.ask("[bold]What are you researching?[/bold]")
+    question, clarification = _clarify(console, question)
 
     corpus_size = IntPrompt.ask(
         "How many papers should the research corpus include? (6-9)", default=8,
@@ -120,8 +123,32 @@ def _collect_request(console: Console) -> ResearchRequest:
 
     return ResearchRequest(
         research_question=question, corpus_size=corpus_size, target_format=target_format,
-        max_draft_length=target_words,
+        max_draft_length=target_words, clarify="ask", clarification=clarification,
     )
+
+
+def _clarify(console: Console, question: str) -> tuple[str, Clarification]:
+    """One sharpening question before a 15-minute run. A specific question,
+    or a model that gives no usable answer, keeps the question unasked."""
+    with console.status(f"[{MUTED}]Checking your question...[/{MUTED}]"):
+        clarified = asyncio.run(discovery_service.clarify_question(question))
+    if clarified is None or clarified["specific"]:
+        return question, Clarification(original_question=question, decision="keep", **(clarified or {}))
+
+    suggested = clarified["suggested_question"]
+    console.print(f"\n[{WARN}]This question may be too broad to search well.[/{WARN}]")
+    if clarified["missing"]:
+        console.print(f"[{MUTED}]Missing: {escape(', '.join(clarified['missing']))}[/{MUTED}]")
+    console.print(f"Suggested: [bold]{escape(suggested)}[/bold]")
+    console.print("[1] Use the suggestion  [2] Edit it  [3] Keep mine")
+    choice = Prompt.ask("Select", choices=["1", "2", "3"], default="1")
+    if choice == "1":
+        chosen, decision = suggested, "accept"
+    elif choice == "2":
+        chosen, decision = Prompt.ask("Your question", default=suggested).strip() or suggested, "edit"
+    else:
+        chosen, decision = question, "keep"
+    return chosen, Clarification(original_question=question, decision=decision, **clarified)
 
 
 def _provider_label(config: rg_config.Config) -> str:
