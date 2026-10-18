@@ -1,0 +1,34 @@
+{
+  "citation": {
+    "citation_key": "P003",
+    "in_text_citation": "[3]",
+    "narrative_citation": "Author [3]",
+    "reference_entry": "[3] A. Author, \"A grey-literature report on fasting,\" Journal of Testing, 2021."
+  },
+  "metadata": {
+    "authors": ["A. Author"],
+    "doi": null,
+    "issue": null,
+    "journal": "Journal of Testing",
+    "pages": null,
+    "paper_type": "report",
+    "title": "A grey-literature report on fasting",
+    "volume": null,
+    "year": 2021
+  },
+  "paper_id": "P003",
+  "points": {
+    "P003-POINT-01": {
+      "certainty": "suggested",
+      "content": "Self-reported focus rose during fasting.",
+      "content_type": "empirical_finding",
+      "point_id": "P003-POINT-01",
+      "stance": "supporting"
+    }
+  },
+  "tag_values": {
+    "TAG-ROOT": [],
+    "TAG-1": [],
+    "TAG-2": ["P003-POINT-01"]
+  }
+}

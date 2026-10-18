@@ -1029,6 +1029,7 @@ const tone = (score) => score < 2.5 ? "bad" : score < 3.5 ? "warn" : "ok";
 const FILES = [
   ["paper.pdf", "Paper", "PDF"], ["paper.tex", "LaTeX source", ".tex"], ["draft.md", "Draft", ".md"],
   ["quality_report.md", "Quality report", ".md"], ["validation_report.md", "Citation report", ".md"], ["references.md", "References", ".md"],
+  ["evidence_table.md", "Evidence table", ".md"],
 ];
 
 function showResults(r) {
@@ -1088,6 +1089,7 @@ function showResults(r) {
     "Draft": qa.final_draft_markdown,
     "Quality report": qa.quality_report_markdown,
     "Citation verification": qa.final_validation_report,
+    "Evidence": "",
     "References": qa.final_references.map((x) => "- " + x).join("\n"),
     "Papers": d.selected_papers.map((p, i) => `### ${i + 1}. ${p.title}\n*${[p.authors.slice(0, 4).join(", ") + (p.authors.length > 4 ? " et al." : ""), p.venue, p.year].filter(Boolean).join(" · ")}*${p.doi ? `  \nDOI: [${p.doi}](https://doi.org/${p.doi.replace(/^https?:\/\/doi.org\//, "")})` : ""}${p.relevance_reason ? `\n\n${p.relevance_reason}` : ""}`).join("\n\n"),
     "Research gaps": d.research_gaps.map((g) => `### ${g.title}\n*${g.gap_type} · impact ${g.impact}*\n\n${g.description}`).join("\n\n"),
@@ -1099,6 +1101,11 @@ function showResults(r) {
   const show = (k) => { $("doc").innerHTML = md(docs[k] || "_Nothing here for this run._"); };
   document.querySelectorAll('input[name="doc"]').forEach((t) => t.onchange = () => show(t.value));
   show("Draft");
+  // The evidence table is only on disk (final/evidence_table.md), not in the result JSON.
+  fetch(`/research/runs/${r.run_id}/files/evidence_table.md`).then((res) => res.ok ? res.text() : "").then((t) => {
+    docs["Evidence"] = t;
+    if (document.querySelector('input[name="doc"]:checked')?.value === "Evidence") show("Evidence");
+  }).catch(() => {});
   $("results").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 

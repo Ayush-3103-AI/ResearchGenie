@@ -1,0 +1,41 @@
+{
+  "citation": {
+    "citation_key": "P002",
+    "in_text_citation": "[2]",
+    "narrative_citation": "Author [2]",
+    "reference_entry": "[2] A. Author, \"Ketosis and attention,\" Journal of Testing, 2021, doi: 10.1000/fake.999."
+  },
+  "metadata": {
+    "authors": ["A. Author"],
+    "doi": "10.1000/fake.999",
+    "issue": null,
+    "journal": "Journal of Testing",
+    "pages": null,
+    "paper_type": "journal-article",
+    "title": "Ketosis and attention",
+    "volume": null,
+    "year": 2021
+  },
+  "paper_id": "P002",
+  "points": {
+    "P002-POINT-01": {
+      "certainty": "suggested",
+      "content": "Ketosis was linked to faster reaction times.",
+      "content_type": "empirical_finding",
+      "point_id": "P002-POINT-01",
+      "stance": "supporting"
+    },
+    "P002-POINT-02": {
+      "certainty": "speculative",
+      "content": "An unused point that no section cites.",
+      "content_type": "author_interpretation",
+      "point_id": "P002-POINT-02",
+      "stance": "neutral"
+    }
+  },
+  "tag_values": {
+    "TAG-ROOT": [],
+    "TAG-1": ["P002-POINT-01"],
+    "TAG-2": ["P002-POINT-02"]
+  }
+}
