@@ -224,6 +224,12 @@ class Run:
     def emit(self, event: dict) -> None:
         self.events.put_nowait(event)
 
+    def available(self, url: str) -> bool:
+        """False once this run's breaker tripped for the URL's host, or its
+        credit budget is used up — a caller can skip the call entirely."""
+        host = host_of(url)
+        return host not in self.tripped and not _gateway.exhausted(host)
+
     def exhausted(self, error: ProviderExhausted) -> ProviderExhausted:
         """Report a host as exhausted (once per run) and return the error to raise."""
         if error.host not in self._reported:
@@ -463,6 +469,10 @@ class Gateway:
                       "message": f"{policy.name} answered HTTP {resp.status_code}; "
                                  f"waiting {wait:.0f} s before retrying."})
         raise AssertionError("unreachable: the last attempt always returns or raises")
+
+    def exhausted(self, host: str) -> bool:
+        """The host's credit budget is used up and has not reset yet."""
+        return self._exhausted_until.get(host, 0.0) > self._wall_clock()
 
     def _check_available(self, run: Run, host: str, policy: HostPolicy) -> None:
         if host in run.tripped:

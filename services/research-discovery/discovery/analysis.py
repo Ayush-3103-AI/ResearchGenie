@@ -70,10 +70,12 @@ QUERYGEN_SYSTEM = (
 )
 
 
-async def generate_queries(question: str, model_name: str | None = None) -> dict:
+async def generate_queries(question: str, model_name: str | None = None,
+                           feedback: str | None = None) -> dict:
+    """`feedback` is the re-plan's account of a thin first search (#15)."""
     comp = await llm.complete_json(
         system=QUERYGEN_SYSTEM,
-        user=f"Research question: {question}",
+        user=f"Research question: {question}" + (f"\n\n{feedback}" if feedback else ""),
         schema=QUERY_SCHEMA,
         model=model_name or economy_model(),
         max_tokens=1500,

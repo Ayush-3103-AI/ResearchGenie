@@ -200,7 +200,8 @@ def _progress_event(
 
 
 _PASSED_THROUGH = ("host", "wait_seconds", "remedy", "papers", "reserve", "approved_by",
-                   "approved_at", "dropped", "replacements")
+                   "approved_at", "dropped", "replacements", "round", "reason",
+                   "accepted_before", "accepted_after")
 
 
 def _adapt_inner_event(run_id: str, stage: str, service: str, inner: dict[str, Any]) -> dict[str, Any]:
