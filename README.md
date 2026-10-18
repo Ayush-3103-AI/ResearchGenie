@@ -31,7 +31,7 @@ Run `researchgenie config` any time to change your setup.
 
 ## 🔬 Doing research
 
-Answer a few short questions — your research topic, how many papers to include (6–9), your preferred format (IEEE or Springer), and your target length (Short/Standard/Detailed) — confirm the summary, and watch live progress as each stage of the pipeline runs:
+Answer a few short questions — your research topic, how many papers to include (6–9), your preferred format (IEEE, Springer or APA), and your target length (Short/Standard/Detailed) — confirm the summary, and watch live progress as each stage of the pipeline runs:
 
 - 🔍 **Research Discovery** — searches multiple scholarly databases, filters for genuine topical relevance, and selects the strongest papers.
 - ✍️ **Research Writing** — builds an evidence-grounded outline and draft, citing only the literature it actually found.

@@ -55,7 +55,8 @@ from researchgenie.tui import (  # noqa: E402
 from shared.contracts.pipeline_contract import Clarification, ResearchRequest  # noqa: E402
 from shared.utilities import library, response_cache, scholarly_gateway  # noqa: E402
 
-_TARGET_FORMATS = ["IEEE", "Springer"]
+# IEEE and Springer are numbered styles; APA is APA 7 author-date (#26).
+_TARGET_FORMATS = ["IEEE", "Springer", "APA"]
 
 
 def _load_word_budget():
@@ -125,9 +126,11 @@ def _collect_request(console: Console) -> ResearchRequest:
     )
     corpus_size = max(6, min(9, corpus_size))
 
-    console.print("Paper format: [1] IEEE  [2] Springer")
-    format_choice = Prompt.ask("Select", choices=["1", "2"], default="1")
-    target_format = "IEEE" if format_choice == "1" else "Springer"
+    console.print("Paper format: " + "  ".join(
+        f"[{i}] {name}" for i, name in enumerate(_TARGET_FORMATS, start=1)))
+    format_choice = Prompt.ask("Select", choices=[str(i) for i in range(1, len(_TARGET_FORMATS) + 1)],
+                               default="1")
+    target_format = _TARGET_FORMATS[int(format_choice) - 1]
 
     console.print(
         "\nPaper length: "
