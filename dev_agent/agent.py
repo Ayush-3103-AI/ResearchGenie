@@ -153,7 +153,9 @@ class _Run:
 
     async def pytest(self, worktree: Path, test_file: str) -> tuple[bool, str]:
         # ponytail: runs only the acceptance test; the human's review and CI run the full suite.
-        command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", test_file]
+        # -B: no .pyc between rounds. A same-size patch written within the same second
+        # as the last one would otherwise run the previous round's cached bytecode.
+        command = [sys.executable, "-B", "-m", "pytest", "-q", "-p", "no:cacheprovider", test_file]
         try:
             done = await asyncio.to_thread(subprocess.run, command, cwd=worktree,
                                            capture_output=True, text=True,
