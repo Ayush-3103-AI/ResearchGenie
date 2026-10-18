@@ -2,6 +2,9 @@
 
     researchgenie          Run setup (first time only), then the research app.
     researchgenie config   Force the setup wizard to run again.
+    researchgenie library import [paths...]   Backfill the research library
+                                              from existing run folders.
+    researchgenie library search <query>      Search past runs and papers.
 
 Everything downstream of "ready" reuses the existing, already-tested
 pipeline (orchestrator.pipeline.run_pipeline) unchanged — this module is
@@ -28,14 +31,15 @@ from rich.live import Live  # noqa: E402
 from rich.markup import escape  # noqa: E402
 from rich.prompt import Confirm, IntPrompt, Prompt  # noqa: E402
 
-from orchestrator.pipeline import PipelineError, run_pipeline  # noqa: E402
+from orchestrator.pipeline import DEFAULT_OUTPUT_ROOT, PipelineError, run_pipeline  # noqa: E402
 from orchestrator.pipeline import discovery_service  # noqa: E402 — for the clarify step
 from researchgenie import config as rg_config  # noqa: E402
 from researchgenie import ollama_manager as om  # noqa: E402
 from researchgenie.setup_wizard import run_setup_wizard  # noqa: E402
-from researchgenie.theme import ERROR, MUTED, OK, WARN  # noqa: E402
+from researchgenie.theme import ACCENT, ERROR, MUTED, OK, WARN  # noqa: E402
 from researchgenie.tui import PipelineView, render_banner, render_completion, render_failure, render_summary  # noqa: E402
 from shared.contracts.pipeline_contract import Clarification, ResearchRequest  # noqa: E402
+from shared.utilities import library  # noqa: E402
 
 _TARGET_FORMATS = ["IEEE", "Springer"]
 
@@ -174,6 +178,10 @@ async def _run_research(console: Console, request: ResearchRequest,
                                             advisor_directory=advisor_directory):
                 if event["type"] == "result":
                     result = event["result"]
+                elif event.get("details", {}).get("raw_type") == "related_runs":
+                    # Printed above the live view so the folder paths stay on screen.
+                    for run in event["details"]["runs"]:
+                        live.console.print(f"[{ACCENT}]{escape(library.describe_run(run))}[/{ACCENT}]")
                 else:
                     view.ingest(event)
                     live.update(view.render())
@@ -233,9 +241,34 @@ def _run_app(console: Console, config: rg_config.Config) -> None:
     asyncio.run(_run_research(console, request))
 
 
+def _library_command(console: Console, args: list[str]) -> None:
+    if args[:1] == ["import"]:
+        paths = args[1:] or [DEFAULT_OUTPUT_ROOT, ROOT / "docs" / "research-papers"]
+        count = library.import_runs(paths)
+        console.print(f"[{OK}]Imported {count} run(s) into {escape(str(library.library_path()))}[/{OK}]")
+    elif args[:1] == ["search"] and args[1:]:
+        query = " ".join(args[1:])
+        runs, papers = library.search_runs(query), library.search_papers(query)
+        if not runs and not papers:
+            console.print(f"[{MUTED}]Nothing in the research library matches that.[/{MUTED}]")
+        for run in runs:
+            console.print(escape(library.describe_run(run)))
+        for paper in papers:
+            console.print(f"{paper['year'] or 'n.d.'}  {escape(paper['title'] or '')}  "
+                          f"[{MUTED}]doi:{escape(paper['doi'])}[/{MUTED}]")
+    else:
+        console.print("Usage: researchgenie library import \\[paths...]\n"
+                      "       researchgenie library search <query>")
+        sys.exit(2)
+
+
 def main() -> None:
     console = Console(legacy_windows=False)
     args = sys.argv[1:]
+
+    if args[:1] == ["library"]:
+        _library_command(console, args[1:])
+        return
 
     force_setup = bool(args) and args[0] == "config"
     if force_setup or not rg_config.is_setup_complete():

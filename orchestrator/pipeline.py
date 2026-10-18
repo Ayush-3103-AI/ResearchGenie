@@ -27,7 +27,7 @@ from shared.contracts.trend_contract import (  # noqa: E402
 )
 from shared.contracts.verification_contract import VerificationRequest  # noqa: E402
 from shared.contracts.writing_contract import WritingRequest  # noqa: E402
-from shared.utilities import latex_export  # noqa: E402
+from shared.utilities import latex_export, library  # noqa: E402
 from shared.utilities.run_paths import slugify  # noqa: E402
 
 
@@ -116,6 +116,16 @@ def _adapt_inner_event(run_id: str, stage: str, service: str, inner: dict[str, A
     return _progress_event(
         run_id=run_id, stage=stage, service=service, status=status,
         title=title, message=message, details={"raw_type": inner_type},
+    )
+
+
+def _library_warning(run_id: str, stage: str, error: Exception) -> dict[str, Any]:
+    return _progress_event(
+        run_id=run_id, stage=stage, service="research_library", status="warning",
+        title="Research library unavailable",
+        message=f"The research library could not be used ({str(error) or type(error).__name__}); "
+                "the run continues without it.",
+        details={"raw_type": "library_error"},
     )
 
 
@@ -223,6 +233,20 @@ async def _run_stages(
                     f"{trend_advisor.domain_label}, "
                     f"{flagged} flagged as recurring gaps.",
             details={"domain": trend_advisor.domain},
+        )
+
+    # ---- Research library: past runs on a similar question ----
+    try:
+        related = library.search_runs(request.research_question, limit=3, exclude_run_id=run_id)
+    except Exception as error:  # the library is a convenience; never fail a run over it
+        related = []
+        yield _library_warning(run_id, "discovery", error)
+    if related:
+        yield _progress_event(
+            run_id=run_id, stage="discovery", service="research_library", status="running",
+            title="Related past runs", message=library.describe_run(related[0])
+            + (f" (and {len(related) - 1} more)" if len(related) > 1 else ""),
+            details={"raw_type": "related_runs", "runs": related},
         )
 
     # ---- Stage 1: Research Discovery ----
@@ -379,6 +403,10 @@ async def _run_stages(
         chosen = trend_advisor.chosen_candidate
         metadata["chosen_topic_gap_flagged"] = chosen is not None and chosen.gap_signal
     _write_json(run_directory / "metadata.json", metadata)
+    try:
+        library.import_run(run_directory)
+    except Exception as error:  # the run itself is complete and on disk
+        yield _library_warning(run_id, "quality_assurance", error)
     yield {"type": "result", "result": result}
 
 

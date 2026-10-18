@@ -791,7 +791,7 @@ function applyProgress(ev) {
   }
 }
 
-function logLine(text, status, stage, ts) {
+function logLine(text, status, stage, ts, href) {
   const log = $("log");
   const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 12;
   log.querySelector(".empty")?.remove();
@@ -803,6 +803,7 @@ function logLine(text, status, stage, ts) {
   line.className = "line"; line.dataset.status = status || "";
   const t = document.createElement("time"); t.textContent = new Date(ts || Date.now()).toLocaleTimeString([], { hour12: false });
   const s = document.createElement("span"); s.textContent = text;
+  if (href) { const a = document.createElement("a"); a.href = href; a.target = "_blank"; a.rel = "noopener"; a.textContent = "open"; s.append(a); }
   line.append(t, s); log.appendChild(line);
   eventCount++; $("feedCount").textContent = `· ${eventCount} event${eventCount > 1 ? "s" : ""}`;
   if (atBottom) log.scrollTop = log.scrollHeight; else $("jump").hidden = false;
@@ -823,7 +824,11 @@ function follow(id, onResult) {
       applyProgress(ev);
       const secs = ev.details && ev.details.seconds != null ? ` (${ev.details.seconds}s)` : "";
       const quiet = ev.details?.raw_type && ev.message === ev.details.raw_type;
-      logLine(`${ev.message}${secs}`, quiet ? "quiet" : ev.status, ev.stage, Date.parse(ev.timestamp));
+      // Past runs on a similar question: one line each, linking to that run's draft.
+      if (ev.details?.raw_type === "related_runs") ev.details.runs.forEach((p) => logLine(
+        `You researched a similar question on ${new Date(p.created).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" })} (“${p.question}”) — QA ${p.overall_quality != null ? p.overall_quality.toFixed(1) : "n/a"} → `,
+        ev.status, ev.stage, Date.parse(ev.timestamp), `/research/runs/${encodeURIComponent(p.run_id)}/files/draft.md`));
+      else logLine(`${ev.message}${secs}`, quiet ? "quiet" : ev.status, ev.stage, Date.parse(ev.timestamp));
     } else if (ev.type === "result") {
       stopTimer();
       onResult(ev.result);
