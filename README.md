@@ -159,6 +159,10 @@ Every run saves a complete, timestamped project folder containing:
 
 ResearchGenie always tells you the exact folder path when a run finishes.
 
+## 🛡️ Safety
+
+[docs/GOVERNANCE.md](docs/GOVERNANCE.md) maps each risk (invented citation, off-topic paper, unsupported claim, key leak, exhausted provider, bad output) to the control that handles it, where it is in the code, the test that proves it, and how to roll back.
+
 ## 🔒 Privacy
 
 With the default Ollama engine, your research question, retrieved literature, and generated draft never leave your machine — there is no cloud AI call anywhere in the pipeline. Choosing the optional Gemini engine sends prompts to Google's API, same as using any cloud AI service; your API key is stored locally and never logged, committed, or embedded in generated output.
