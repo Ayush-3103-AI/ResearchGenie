@@ -8,6 +8,7 @@ reachability rather than on Ollama, unlike the other live-skipped tests here.
 """
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -31,9 +32,16 @@ def _openalex_available() -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(
-    not _openalex_available(), reason="OpenAlex not reachable from this machine",
-)
+pytestmark = [
+    pytest.mark.skipif(
+        os.environ.get("CI") == "true",
+        reason="Live network test: skipped on CI, where shared runner IPs exhaust "
+               "OpenAlex's keyless daily credits. Run it locally.",
+    ),
+    pytest.mark.skipif(
+        not _openalex_available(), reason="OpenAlex not reachable from this machine",
+    ),
+]
 
 
 def test_real_openalex_query_produces_a_ranked_shortlist_with_real_papers():

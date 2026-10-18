@@ -1,5 +1,7 @@
 # ResearchGenie
 
+[![tests](https://github.com/Ayush-3103-AI/ResearchGenie/actions/workflows/test.yml/badge.svg)](https://github.com/Ayush-3103-AI/ResearchGenie/actions/workflows/test.yml)
+
 A local-first AI research assistant. Give it a research question — it discovers relevant literature, identifies genuine research gaps, drafts an evidence-grounded paper, verifies every citation against real scholarly databases, and independently audits its own quality. Everything runs on your own machine by default.
 
 ## 📦 Install
