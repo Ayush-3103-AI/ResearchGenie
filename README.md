@@ -1,5 +1,7 @@
 # ResearchGenie
 
+[![tests](https://github.com/Ayush-3103-AI/ResearchGenie/actions/workflows/test.yml/badge.svg)](https://github.com/Ayush-3103-AI/ResearchGenie/actions/workflows/test.yml)
+
 A local-first AI research assistant. Give it a research question — it discovers relevant literature, identifies genuine research gaps, drafts an evidence-grounded paper, verifies every citation against real scholarly databases, and independently audits its own quality. Everything runs on your own machine by default.
 
 ## 📦 Install
@@ -69,6 +71,42 @@ Open http://localhost:8000. The header shows whether the model is ready. Then ei
 2. **Start from a question**: type a question and run Discovery → Writing → Verification → Quality directly.
 
 A stage tracker and a live event log follow the run; results show quality scores, citation-verification counts, the draft, reports, and downloads (`draft.md`, `paper.tex`, `paper.pdf` when LaTeX is installed). Reloading the page reconnects to the run. A full run takes roughly 15 minutes on an RTX 4060, much longer on CPU. The API docs are at http://localhost:8000/docs.
+
+## 🐳 Run with Docker
+
+The same web UI and API in a container, with tectonic included for PDFs. Pick one profile from the repo root:
+
+**Local (Ollama in a container, nothing leaves your machine):**
+
+```
+docker compose --profile local up --build
+```
+
+This starts the app, an Ollama server, and a one-shot `ollama-pull` service that downloads the model (`qwen3.5:9b`, about 6.6 GB) into the `ollama-models` volume the first time. Open http://localhost:8000: the header turns ready once the pull finishes (`docker compose logs -f ollama-pull` shows progress). To pull by hand instead: `docker compose exec ollama ollama pull qwen3.5:9b`. Set `LOCAL_AI_MODEL` to use a different model.
+
+With an NVIDIA GPU (NVIDIA Container Toolkit on Linux, or Docker Desktop with WSL2 on Windows), add the GPU override; without it Ollama runs on CPU, which is much slower:
+
+```
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile local up --build
+```
+
+**Cloud (Gemini, no GPU needed):**
+
+```
+GEMINI_API_KEY=your-key docker compose --profile cloud up --build
+```
+
+On Windows PowerShell, run `$env:GEMINI_API_KEY="your-key"` first. You can also put `GEMINI_API_KEY=...` in a `.env` file next to `docker-compose.yml` (it is git-ignored and excluded from the image). The key is read at run time only and is never built into the image.
+
+| Variable | Profile | Default | Purpose |
+|---|---|---|---|
+| `GEMINI_API_KEY` | cloud | — | Your Gemini API key (required) |
+| `GEMINI_MODEL` | cloud | `gemini-2.5-flash` | Gemini model |
+| `LOCAL_AI_MODEL` | local | `qwen3.5:9b` | Ollama model to pull and use |
+| `CONTACT_EMAIL` | both | — | Optional, sent to OpenAlex/PubMed for their polite pool |
+| `RESEARCHGENIE_PORT` | both | `8000` | Host port for the web UI |
+
+Run folders land in `./outputs` on your machine. On Linux the container writes as uid 1000, so that folder must be writable by uid 1000. The first PDF compile downloads tectonic's TeX bundle (a few minutes, needs internet); it is cached in the `researchgenie-home` volume after that. Stop with `docker compose --profile local down` (or `cloud`); add `-v` to also delete the model and cache volumes.
 
 ## 📁 What you get
 

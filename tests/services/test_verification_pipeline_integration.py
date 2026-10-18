@@ -6,6 +6,7 @@ pure HTTP lookups, no LLM calls.
 """
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -38,7 +39,14 @@ def _network_available() -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(not _network_available(), reason="Crossref not reachable")
+pytestmark = [
+    pytest.mark.skipif(
+        os.environ.get("CI") == "true",
+        reason="Live network test: skipped on CI, where shared runner IPs exhaust "
+               "OpenAlex's keyless daily credits. Run it locally.",
+    ),
+    pytest.mark.skipif(not _network_available(), reason="Crossref not reachable"),
+]
 
 
 def test_verification_service_checks_a_real_and_a_fabricated_doi():

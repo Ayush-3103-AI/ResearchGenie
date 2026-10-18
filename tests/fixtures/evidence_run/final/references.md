@@ -1,0 +1,3 @@
+- [1] A. Author, "Fasting and memory in adults," Journal of Testing, 2021, doi: 10.1000/ABC.123.
+- [2] A. Author, "Ketosis and attention," Journal of Testing, 2021, doi: 10.1000/fake.999.
+- [3] A. Author, "A grey-literature report on fasting," Journal of Testing, 2021.

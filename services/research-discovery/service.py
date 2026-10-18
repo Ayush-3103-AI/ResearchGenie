@@ -19,6 +19,7 @@ from shared.contracts.discovery_contract import (  # noqa: E402
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from discovery.analysis import clarify_question  # noqa: E402, F401 — the orchestrator's clarify step
 from discovery.models import PipelineError  # noqa: E402
 from discovery.pipeline import run_pipeline  # noqa: E402
 

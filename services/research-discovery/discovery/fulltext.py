@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import asyncio
 import io
-import os
 import re
 import xml.etree.ElementTree as ET
 
@@ -22,6 +21,8 @@ import defusedxml.ElementTree as DET
 import httpx
 from defusedxml.common import DefusedXmlException
 from pypdf import PdfReader
+
+from shared.utilities import scholarly_gateway
 
 EPMC_SEARCH = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 EPMC_FULLTEXT = "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
@@ -47,12 +48,6 @@ _HEADING_RE = re.compile(
     re.IGNORECASE,
 )
 _REFS_RE = re.compile(r"\n[ \t]{0,8}(references|bibliography|literature\s+cited)[ \t]*\n", re.IGNORECASE)
-
-
-def _headers() -> dict:
-    email = os.getenv("CONTACT_EMAIL", "")
-    contact = f"; mailto:{email}" if email else ""
-    return {"User-Agent": f"Mozilla/5.0 (compatible; lit-gap/1.0; research tool{contact})"}
 
 
 def _cap(text: str) -> str:
@@ -114,8 +109,8 @@ def _extract_pdf_text(content: bytes) -> str:
 async def _try_pdf(http: httpx.AsyncClient, url: str) -> str | None:
     # Stream so we can abort an oversized or non-PDF body mid-download instead of
     # buffering the whole thing (these URLs point at arbitrary publisher hosts and
-    # up to FULLTEXT_CONCURRENCY of them run at once).
-    async with http.stream("GET", url, headers=_headers()) as resp:
+    # several of them run at once, each paced by its host's gateway policy).
+    async with scholarly_gateway.stream(http, url) as resp:
         if resp.status_code != 200:
             return None
         ctype = resp.headers.get("content-type", "").lower()
@@ -134,7 +129,7 @@ async def _try_pdf(http: httpx.AsyncClient, url: str) -> str | None:
     if b"%PDF" not in content[:1024]:
         return None
     # Parse AND slice off the event loop — the heading regex over the extracted text
-    # is itself CPU work, and FULLTEXT_CONCURRENCY of these run at once.
+    # is itself CPU work, and several of these run at once.
     return await asyncio.to_thread(_pdf_to_sections, content)
 
 
@@ -173,11 +168,11 @@ def _sections_from_jats(xml_text: str) -> str | None:
 
 
 async def _resolve_pmcid(http: httpx.AsyncClient, doi: str) -> str | None:
-    resp = await http.get(EPMC_SEARCH, params={
+    resp = await scholarly_gateway.get(http, EPMC_SEARCH, params={
         "query": f'DOI:"{doi}" AND OPEN_ACCESS:y',
         "format": "json",
         "pageSize": 1,
-    }, headers=_headers())
+    })
     if resp.status_code != 200:
         return None
     results = resp.json().get("resultList", {}).get("result", [])
@@ -191,7 +186,7 @@ async def _try_europe_pmc(http: httpx.AsyncClient, pmcid: str | None, doi: str |
         return None
     # Stream with a size cap — full-article JATS XML is unbounded and this fetch
     # otherwise buffers whatever the endpoint returns.
-    async with http.stream("GET", EPMC_FULLTEXT.format(pmcid=pmcid), headers=_headers()) as resp:
+    async with scholarly_gateway.stream(http, EPMC_FULLTEXT.format(pmcid=pmcid)) as resp:
         if resp.status_code != 200:
             return None
         buf = bytearray()
@@ -215,7 +210,10 @@ def is_candidate(paper) -> bool:
 
 
 async def _fetch(http: httpx.AsyncClient, paper) -> str | None:
-    text = await _try_europe_pmc(http, paper.pmcid, paper.doi)
+    try:
+        text = await _try_europe_pmc(http, paper.pmcid, paper.doi)
+    except scholarly_gateway.ProviderExhausted:
+        text = None  # Europe PMC is skipped for this run; the PDF route still works
     if not text and paper.pdf_url:
         text = await _try_pdf(http, paper.pdf_url)
     return text

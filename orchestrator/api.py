@@ -35,15 +35,16 @@ from pydantic import BaseModel  # noqa: E402
 
 from orchestrator import run_registry  # noqa: E402
 from orchestrator.pipeline import PipelineError, run_pipeline, run_trend_advisor_stage  # noqa: E402
+from orchestrator.pipeline import discovery_service  # noqa: E402 — for the clarify step
 from researchgenie import advisor_cli  # noqa: E402
 from shared.contracts.pipeline_contract import PipelineResult, ResearchRequest  # noqa: E402
 from shared.contracts.trend_contract import TrendAdvisorRequest, TrendAdvisorResult  # noqa: E402
-from shared.utilities import llm_provider  # noqa: E402
+from shared.utilities import library, llm_provider  # noqa: E402
 
 FRONTEND = ROOT / "frontend" / "index.html"
 # Only the files the pipeline itself writes to <run>/final/ are downloadable.
 FINAL_FILES = {"draft.md", "quality_report.md", "validation_report.md",
-               "references.md", "paper.tex", "paper.pdf"}
+               "references.md", "evidence_table.md", "paper.tex", "paper.pdf"}
 
 app = FastAPI(
     title="AI Research Assistant",
@@ -79,6 +80,21 @@ async def start_research_run(request: ResearchRequest) -> dict[str, str]:
     run_id = uuid4().hex
     await run_registry.start_run(request, run_id, run_pipeline)
     return {"run_id": run_id}
+
+
+class QuestionCheck(BaseModel):
+    research_question: str
+
+
+@app.post("/research/clarify")
+async def clarify_research_question(check: QuestionCheck) -> dict[str, object]:
+    """The clarify step on its own, called by the page before it starts a run
+    so the user can accept, edit or keep the suggestion. available is false
+    when the model gave no usable answer: the page then keeps the question."""
+    clarified = await discovery_service.clarify_question(check.research_question)
+    if clarified is None:
+        return {"available": False, "specific": None, "missing": [], "suggested_question": ""}
+    return {"available": True, **clarified}
 
 
 @app.get("/research/runs/{run_id}")
@@ -142,10 +158,18 @@ async def system_status() -> dict[str, object]:
 @app.get("/research/runs/{run_id}/files/{name}")
 async def get_run_file(run_id: str, name: str) -> FileResponse:
     state = run_registry.get_run(run_id)
-    if state is None or not isinstance(state.result, PipelineResult) or name not in FINAL_FILES:
+    if state is not None and isinstance(state.result, PipelineResult):
+        directory = Path(state.result.run_directory)
+    else:
+        # A past run this server process never ran (e.g. one listed by a
+        # related_runs event) is found through the research library.
+        past = library.get_run(run_id)
+        directory = Path(past["run_dir"]) if past else None
+    if directory is None or name not in FINAL_FILES:
         raise HTTPException(status_code=404, detail="No such file for this run.")
-    path = Path(state.result.run_directory) / "final" / name
-    if not path.is_file():
+    # Imported copies under docs/research-papers/ keep their files at the top level.
+    path = next((p for p in (directory / "final" / name, directory / name) if p.is_file()), None)
+    if path is None:
         raise HTTPException(status_code=404, detail=f"{name} was not produced by this run.")
     return FileResponse(path, filename=name)
 

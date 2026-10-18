@@ -1,0 +1,12 @@
+# Optional NVIDIA GPU passthrough for the local profile's Ollama service.
+# Needs the NVIDIA Container Toolkit (Linux) or Docker Desktop's WSL2 GPU support.
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile local up
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

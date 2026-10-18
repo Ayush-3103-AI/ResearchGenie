@@ -1,0 +1,32 @@
+name: docker
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check compose file (both profiles)
+        run: |
+          docker compose --profile local config --quiet
+          docker compose --profile cloud config --quiet
+
+      - name: Build image (no push)
+        run: docker build -t researchgenie:ci .
+
+      - name: Smoke test - API boots and /system answers
+        run: |
+          docker run -d --name rg -p 8000:8000 \
+            -e AI_PROVIDER=gemini -e GEMINI_API_KEY=dummy-not-a-key researchgenie:ci
+          for i in $(seq 1 30); do curl -fs http://localhost:8000/system && break; sleep 1; done
+          curl -fs http://localhost:8000/system | grep -q '"model_ready":true'
+          curl -fs http://localhost:8000/ | grep -qi '<html'
+          docker exec rg tectonic --version
+
+      - name: Container logs
+        if: failure()
+        run: docker logs rg

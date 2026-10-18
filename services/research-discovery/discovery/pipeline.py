@@ -9,6 +9,8 @@ from typing import AsyncIterator
 
 import httpx
 
+from shared.utilities import scholarly_gateway
+
 from . import fulltext
 from .analysis import (analyze_gaps, economy_model, generate_queries,
                        mine_future_research, model)
@@ -17,7 +19,6 @@ from .relevance import build_topic_profile, screen_papers
 from .sources import SOURCES, openalex
 
 FULLTEXT_MAX_ATTEMPTS = 40   # papers we try to fetch full text for
-FULLTEXT_CONCURRENCY = 8
 VERIFY_RESULTS_PER_CANDIDATE = 8
 MAX_CANDIDATES_FOR_ANALYSIS = 5  # caps final-synthesis output size; see D-009
 
@@ -121,24 +122,32 @@ def fulltext_done_event(corpus: list[Paper]) -> dict:
             "excerpts": {p.id: p.future_text for p in with_text}}
 
 
-async def _collect_fulltext(corpus: list[Paper]) -> AsyncIterator[dict]:
-    """Fetch Discussion/Future sections for the best full-text candidates."""
+async def _collect_fulltext(corpus: list[Paper], gateway_run: scholarly_gateway.Run,
+                            transport: httpx.AsyncBaseTransport | None = None,
+                            ) -> AsyncIterator[dict]:
+    """Fetch Discussion/Future sections for the best full-text candidates.
+    Yields fulltext_progress events, plus the gateway's own rate_limited /
+    provider_exhausted events as they queue up."""
     targets = [p for p in corpus if fulltext.is_candidate(p)][:FULLTEXT_MAX_ATTEMPTS]
     if not targets:
         return
-    sem = asyncio.Semaphore(FULLTEXT_CONCURRENCY)
+    # Every fetch starts at Europe PMC, so its policy sets the fan-out width;
+    # the gateway's per-host slots then cap each PDF host on its own.
+    sem = asyncio.Semaphore(scholarly_gateway.concurrency(fulltext.EPMC_SEARCH))
     done = ok = 0
 
     async def one(p: Paper) -> bool:
         async with sem:
             return await fulltext.fetch_future_sections(http, p)
 
-    async with httpx.AsyncClient(timeout=60, follow_redirects=True) as http:
-        tasks = [asyncio.create_task(one(p)) for p in targets]
+    async with httpx.AsyncClient(timeout=60, follow_redirects=True, transport=transport) as http:
+        tasks = [gateway_run.task(one(p)) for p in targets]
         try:
             for fut in asyncio.as_completed(tasks):
                 ok += 1 if await fut else 0
                 done += 1
+                for event in gateway_run.drain():
+                    yield event
                 if done % 5 == 0 or done == len(targets):
                     yield {"type": "fulltext_progress", "done": done,
                            "ok": ok, "total": len(targets)}
@@ -150,7 +159,9 @@ async def _collect_fulltext(corpus: list[Paper]) -> AsyncIterator[dict]:
             await asyncio.gather(*tasks, return_exceptions=True)
 
 
-async def _verify_candidates(candidates: list[dict], corpus: list[Paper]) -> tuple[list[Paper], list[dict]]:
+async def _verify_candidates(candidates: list[dict], corpus: list[Paper],
+                             transport: httpx.AsyncBaseTransport | None = None,
+                             ) -> tuple[list[Paper], list[dict]]:
     """Search the literature for each candidate question; return new verification
     papers (with ids continuing after the corpus) and per-candidate warnings."""
     # Index the corpus by both DOI and title so a verification hit that lacks a
@@ -172,7 +183,7 @@ async def _verify_candidates(candidates: list[dict], corpus: list[Paper]) -> tup
                                          VERIFY_RESULTS_PER_CANDIDATE,
                                          require_abstract=False)
 
-    async with httpx.AsyncClient(timeout=45, follow_redirects=True) as http:
+    async with httpx.AsyncClient(timeout=45, follow_redirects=True, transport=transport) as http:
         results = await asyncio.gather(*[search_one(c) for c in candidates],
                                        return_exceptions=True)
 
@@ -217,12 +228,17 @@ async def run_pipeline(question: str, source_keys: list[str],
                        per_source: int, corpus_size: int,
                        fulltext_enabled: bool = True,
                        quality: str = "balanced",
-                       keywords: list[str] | None = None) -> AsyncIterator[dict]:
+                       keywords: list[str] | None = None,
+                       transport: httpx.AsyncBaseTransport | None = None) -> AsyncIterator[dict]:
+    """`transport` is a test seam (httpx.MockTransport); production leaves it None."""
     selected = [(k, *SOURCES[k]) for k in source_keys if k in SOURCES]
     if not selected:
         raise PipelineError("Select at least one literature source.")
 
     fast_model, analysis_model = _models(quality)
+    # This run's breaker state and the queue of the gateway's rate_limited /
+    # provider_exhausted events, relayed below as each stage runs.
+    gateway_run = scholarly_gateway.Run()
     yield {"type": "log",
            "message": f"Models — queries & mining: {fast_model}; "
                       f"gap analysis: {analysis_model}"}
@@ -238,11 +254,19 @@ async def run_pipeline(question: str, source_keys: list[str],
 
         yield {"type": "status", "stage": "search", "state": "running",
                "message": f"Searching {len(selected)} database(s)…"}
-        async with httpx.AsyncClient(timeout=45, follow_redirects=True) as http:
-            results = await asyncio.gather(
-                *[fn(http, queries, per_source) for _, _, fn in selected],
-                return_exceptions=True,
-            )
+
+        async def search_all() -> list:
+            async with httpx.AsyncClient(timeout=45, follow_redirects=True,
+                                         transport=transport) as http:
+                return await asyncio.gather(
+                    *[fn(http, queries, per_source) for _, _, fn in selected],
+                    return_exceptions=True,
+                )
+
+        search = gateway_run.task(search_all())
+        async for event in gateway_run.relay(search):
+            yield event
+        results = search.result()
         for (key, label, _), result in zip(selected, results):
             if isinstance(result, BaseException):
                 yield {"type": "source_error", "source": label,
@@ -296,7 +320,10 @@ async def run_pipeline(question: str, source_keys: list[str],
     if fulltext_enabled:
         yield {"type": "status", "stage": "fulltext", "state": "running",
                "message": "Retrieving full texts (open access)…"}
-        async for event in _collect_fulltext(corpus):
+        async for event in _collect_fulltext(corpus, gateway_run, transport):
+            if event["type"] != "fulltext_progress":
+                yield event  # the gateway's rate_limited / provider_exhausted
+                continue
             yield {"type": "status", "stage": "fulltext", "state": "running",
                    "message": f"Retrieving full texts… {event['ok']} of {event['done']} "
                               f"tried (of {event['total']} candidates)"}
@@ -351,7 +378,10 @@ async def run_pipeline(question: str, source_keys: list[str],
             yield {"type": "status", "stage": "verify", "state": "running",
                    "message": f"Checking whether {len(candidates)} candidate(s) have "
                               "already been answered…"}
-            verification_papers, warnings = await _verify_candidates(candidates, corpus)
+            verify = gateway_run.task(_verify_candidates(candidates, corpus, transport))
+            async for event in gateway_run.relay(verify):
+                yield event
+            verification_papers, warnings = verify.result()
             for w in warnings:
                 yield w
             if verification_papers:

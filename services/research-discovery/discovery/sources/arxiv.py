@@ -6,19 +6,18 @@ import xml.etree.ElementTree as ET
 
 import httpx
 
+from shared.utilities import scholarly_gateway
+
 from ..models import Paper
-from ._http_retry import get_with_retry
 
 QUERY_URL = "https://export.arxiv.org/api/query"
 ATOM = "{http://www.w3.org/2005/Atom}"
 
 
 async def search(http: httpx.AsyncClient, queries: dict, limit: int) -> list[Paper]:
-    # Previously a single, non-retried GET — a transient rate-limit/5xx here
-    # permanently failed this source for the whole run, with no recovery at
-    # all (see DECISIONS.md D-028; confirmed as a real cause of a full
-    # Discovery-stage failure in PAPER_OUTPUT_FINAL_DIAGNOSTIC.md finding #3).
-    resp = await get_with_retry(http, QUERY_URL, {
+    # Paced at arXiv's 1 request per 3 s on one connection, with retry — see
+    # shared/utilities/scholarly_gateway.py (DECISIONS.md D-028 for the history).
+    resp = await scholarly_gateway.get(http, QUERY_URL, params={
         "search_query": f"all:{queries['arxiv']}",
         "max_results": min(limit, 100),
         "sortBy": "relevance",

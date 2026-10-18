@@ -1,31 +1,25 @@
-"""Semantic Scholar Graph API connector (free; optional API key raises rate limits)."""
+"""Semantic Scholar Graph API connector (free, keyless, best effort)."""
 
 from __future__ import annotations
 
-import os
-
 import httpx
 
+from shared.utilities import scholarly_gateway
+
 from ..models import Paper, normalize_doi
-from ._http_retry import get_with_retry
 
 SEARCH_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 FIELDS = "title,abstract,year,venue,citationCount,authors,externalIds,url,openAccessPdf"
 
 
 async def search(http: httpx.AsyncClient, queries: dict, limit: int) -> list[Paper]:
-    headers = {}
-    api_key = os.getenv("S2_API_KEY")
-    if api_key:
-        headers["x-api-key"] = api_key
-
     params = {"query": queries["keyword"], "limit": min(limit, 100), "fields": FIELDS}
 
-    # The shared unauthenticated pool 429s often, and previously ONLY 429 was
-    # retried here (a narrower set than the other sources' shared helper) —
-    # broadened to the same 429/5xx retry set as every other source (see
-    # DECISIONS.md D-028).
-    resp = await get_with_retry(http, SEARCH_URL, params, headers=headers)
+    # Keyless by decision: no API key is sent. The shared anonymous pool 429s
+    # often, so the gateway paces S2 at 1 request per ~3 s and trips its
+    # breaker on the first 429 burst (ProviderExhausted) — Discovery then
+    # continues on the other sources.
+    resp = await scholarly_gateway.get(http, SEARCH_URL, params=params)
     resp.raise_for_status()
 
     papers = []

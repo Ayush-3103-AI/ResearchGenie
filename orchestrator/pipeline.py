@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT))
 
 from shared.contracts.discovery_contract import DiscoveryRequest  # noqa: E402
 from shared.contracts.pipeline_contract import (  # noqa: E402
-    PipelineResult, ResearchRequest, StageTimings,
+    Clarification, PipelineResult, ResearchRequest, StageTimings,
 )
 from shared.contracts.qa_contract import QualityAssuranceRequest  # noqa: E402
 from shared.contracts.trend_contract import (  # noqa: E402
@@ -27,7 +27,7 @@ from shared.contracts.trend_contract import (  # noqa: E402
 )
 from shared.contracts.verification_contract import VerificationRequest  # noqa: E402
 from shared.contracts.writing_contract import WritingRequest  # noqa: E402
-from shared.utilities import latex_export  # noqa: E402
+from shared.utilities import evidence_table, latex_export, library  # noqa: E402
 from shared.utilities.run_paths import slugify  # noqa: E402
 
 
@@ -107,15 +107,29 @@ def _adapt_inner_event(run_id: str, stage: str, service: str, inner: dict[str, A
     state = inner.get("state")
     if state in ("running", "done", "failed"):
         status = state
-    elif inner_type == "source_error":
+    elif inner_type in ("source_error", "provider_exhausted"):
         status = "warning"
     else:
         status = "running"
     message = inner.get("message") or inner_type
     title = message if len(message) <= 60 else f"{stage.replace('_', ' ').title()} update"
+    # The scholarly gateway's rate_limited / provider_exhausted events carry
+    # their host, wait and remedy through to the standard shape.
+    details = {"raw_type": inner_type,
+               **{k: inner[k] for k in ("host", "wait_seconds", "remedy") if k in inner}}
     return _progress_event(
         run_id=run_id, stage=stage, service=service, status=status,
-        title=title, message=message, details={"raw_type": inner_type},
+        title=title, message=message, details=details,
+    )
+
+
+def _library_warning(run_id: str, stage: str, error: Exception) -> dict[str, Any]:
+    return _progress_event(
+        run_id=run_id, stage=stage, service="research_library", status="warning",
+        title="Research library unavailable",
+        message=f"The research library could not be used ({str(error) or type(error).__name__}); "
+                "the run continues without it.",
+        details={"raw_type": "library_error"},
     )
 
 
@@ -125,6 +139,51 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
 
 
 async def run_pipeline(
+    request: ResearchRequest, output_root: Path | None = None, run_id: str | None = None,
+    **stage_options: Any,
+) -> AsyncIterator[dict[str, Any]]:
+    """The entry point every surface (CLI, API, web) uses: runs _run_stages
+    (see its docstring for the events and stage_options) and appends each
+    event to <run_dir>/events.jsonl before passing it on unchanged, plus an
+    {"type": "error"} line if it raises. One line per event, written and
+    closed as it arrives, so a crash keeps everything logged so far;
+    run_registry rebuilds past runs from this file after a restart.
+
+    The log is opened per event rather than up front: _run_stages may
+    rename the Stage 0 folder into the run folder, which it only does if
+    the run folder doesn't exist yet, and it has created the folder by the
+    time it yields its first event."""
+    output_root = output_root or DEFAULT_OUTPUT_ROOT
+    run_id = run_id or uuid4().hex
+    # Clarify: an interactive surface already asked ("ask" + clarification);
+    # "auto" asks the model here and takes its suggestion. Before the folder
+    # and the log path are named, so it carries the question actually researched.
+    if request.clarify == "auto" and request.clarification is None:
+        clarified = await discovery_service.clarify_question(request.research_question)
+        accept = clarified is not None and not clarified["specific"]
+        request = request.model_copy(update={
+            "research_question": clarified["suggested_question"] if accept else request.research_question,
+            "clarification": Clarification(original_question=request.research_question,
+                                           decision="accept" if accept else "keep", **(clarified or {})),
+        })
+    log_path = output_root / f"{slugify(request.research_question)}_{run_id}" / "events.jsonl"
+
+    def append(event: dict[str, Any]) -> None:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as log:
+            log.write(json.dumps(event, ensure_ascii=False, default=lambda o: o.model_dump(mode="json")) + "\n")
+
+    try:
+        async for event in _run_stages(request, output_root=output_root, run_id=run_id, **stage_options):
+            append(event)
+            yield event
+    except Exception as error:
+        # Same message run_registry reports for a failed run.
+        append({"type": "error", "message": str(error) or type(error).__name__})
+        raise
+
+
+async def _run_stages(
     request: ResearchRequest, output_root: Path | None = None, run_id: str | None = None,
     trend_advisor: TrendAdvisorResult | None = None,
     advisor_directory: Path | str | None = None,
@@ -154,6 +213,17 @@ async def run_pipeline(
             advisor_dir.rename(run_directory)
     run_directory.mkdir(parents=True, exist_ok=True)
     _write_json(run_directory / "00_request.json", request.model_dump(mode="json"))
+    if request.clarification is not None:
+        c = request.clarification
+        yield _progress_event(
+            run_id=run_id, stage="discovery", service="research_discovery", status="running",
+            title="Research question checked",
+            message=f"Clarify: {c.decision} — researching \"{request.research_question}\".",
+            details={"raw_type": "clarify", "original": c.original_question,
+                     "chosen": request.research_question, "decision": c.decision,
+                     "specific": c.specific, "missing": c.missing,
+                     "suggested": c.suggested_question},
+        )
 
     # ---- Stage 0 (optional): Trend & Gap Advisor ----
     if trend_advisor is not None:
@@ -167,6 +237,20 @@ async def run_pipeline(
                     f"{trend_advisor.domain_label}, "
                     f"{flagged} flagged as recurring gaps.",
             details={"domain": trend_advisor.domain},
+        )
+
+    # ---- Research library: past runs on a similar question ----
+    try:
+        related = library.search_runs(request.research_question, limit=3, exclude_run_id=run_id)
+    except Exception as error:  # the library is a convenience; never fail a run over it
+        related = []
+        yield _library_warning(run_id, "discovery", error)
+    if related:
+        yield _progress_event(
+            run_id=run_id, stage="discovery", service="research_library", status="running",
+            title="Related past runs", message=library.describe_run(related[0])
+            + (f" (and {len(related) - 1} more)" if len(related) > 1 else ""),
+            details={"raw_type": "related_runs", "runs": related},
         )
 
     # ---- Stage 1: Research Discovery ----
@@ -274,6 +358,11 @@ async def run_pipeline(
     (final_dir / "references.md").write_text(
         "\n".join(f"- {entry}" for entry in qa_result.final_references) + "\n", encoding="utf-8",
     )
+    # Deterministic, no LLM call — see shared/utilities/evidence_table.py.
+    (final_dir / "evidence_table.md").write_text(
+        evidence_table.build_evidence_table(Path(writing_result.run_directory), verification_result),
+        encoding="utf-8",
+    )
 
     # LaTeX source is always generated (deterministic, no LLM call — see
     # shared/utilities/latex_export.py). PDF compilation is attempted only
@@ -323,6 +412,10 @@ async def run_pipeline(
         chosen = trend_advisor.chosen_candidate
         metadata["chosen_topic_gap_flagged"] = chosen is not None and chosen.gap_signal
     _write_json(run_directory / "metadata.json", metadata)
+    try:
+        library.import_run(run_directory)
+    except Exception as error:  # the run itself is complete and on disk
+        yield _library_warning(run_id, "quality_assurance", error)
     yield {"type": "result", "result": result}
 
 

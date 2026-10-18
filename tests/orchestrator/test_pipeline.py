@@ -140,6 +140,39 @@ def test_run_pipeline_produces_result_and_persists_artifacts(tmp_path):
         assert set(event) >= {"run_id", "stage", "service", "status", "emoji", "title", "message", "details", "timestamp"}
 
 
+def test_every_completed_run_writes_an_evidence_table_without_the_model(tmp_path, monkeypatch):
+    fixture = ROOT / "tests" / "fixtures" / "evidence_run"
+    writing = _fake_writing_result().model_copy(
+        update={"run_directory": str(fixture / "02_writing" / "0a1b2c3d")})
+    verification = VerificationResult.model_validate_json(
+        (fixture / "03_verification" / "result.json").read_text(encoding="utf-8"))
+
+    async def _writing(request, output_root=None):
+        yield {"type": "result", "result": writing}
+
+    async def _verification(request):
+        yield {"type": "result", "result": verification}
+
+    def _refuse(*args, **kwargs):
+        raise AssertionError("the evidence table must not call the model")
+
+    monkeypatch.setattr(orchestrator_pipeline.writing_service, "run_writing", _writing)
+    monkeypatch.setattr(orchestrator_pipeline.verification_service, "run_verification", _verification)
+    from shared.utilities import llm_provider
+    for name in ("stream_json", "complete_json", "health_check"):
+        monkeypatch.setattr(llm_provider, name, _refuse)
+
+    async def run():
+        async for event in orchestrator_pipeline.run_pipeline(
+            ResearchRequest(research_question="What is X?", corpus_size=6), output_root=tmp_path,
+        ):
+            if event["type"] == "result":
+                return event["result"]
+
+    table = (Path(asyncio.run(run()).run_directory) / "final" / "evidence_table.md").read_text(encoding="utf-8")
+    assert "| Ketosis and attention | Ketosis was linked to faster reaction times. | Background | 10.1000/fake.999 | invalid |" in table
+
+
 def test_research_request_requires_format_other_name_when_format_is_other():
     with pytest.raises(ValueError):
         ResearchRequest(research_question="Q?", target_format="Other")
@@ -161,6 +194,43 @@ def test_run_pipeline_raises_if_a_stage_yields_no_result(tmp_path, monkeypatch):
 
     with pytest.raises(orchestrator_pipeline.PipelineError):
         asyncio.run(run())
+
+
+def test_run_pipeline_appends_every_event_to_events_jsonl_including_failure(tmp_path, monkeypatch):
+    async def _failing_writing(request, output_root=None):
+        yield {"type": "status", "stage": "write", "state": "running", "message": "writing"}
+
+    monkeypatch.setattr(orchestrator_pipeline.writing_service, "run_writing", _failing_writing)
+    request = ResearchRequest(research_question="What is X?", corpus_size=6)
+
+    async def run():
+        events = []
+        with pytest.raises(orchestrator_pipeline.PipelineError) as error:
+            async for event in orchestrator_pipeline.run_pipeline(request, output_root=tmp_path, run_id="abc123"):
+                events.append(event)
+        return events, error.value
+
+    events, error = asyncio.run(run())
+
+    log_path = tmp_path / "what-is-x_abc123" / "events.jsonl"
+    logged = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+    assert len(events) > 2
+    assert logged[:-1] == events  # same events, same order, same shape
+    assert logged[-1] == {"type": "error", "message": str(error)}
+
+
+def test_run_pipeline_logs_result_event_to_events_jsonl(tmp_path):
+    request = ResearchRequest(research_question="What is X?", corpus_size=6)
+
+    async def run():
+        return [event async for event in orchestrator_pipeline.run_pipeline(request, output_root=tmp_path)]
+
+    events = asyncio.run(run())
+
+    run_directory = Path(events[-1]["result"].run_directory)
+    logged = [json.loads(line) for line in (run_directory / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert logged[:-1] == events[:-1]
+    assert logged[-1] == {"type": "result", "result": events[-1]["result"].model_dump(mode="json")}
 
 
 # --- Optional Stage 0: Trend & Gap Advisor (DECISIONS.md D-031) -------------

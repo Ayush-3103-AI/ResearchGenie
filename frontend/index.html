@@ -477,6 +477,7 @@ textarea.lg { font-size: 16px; min-height: 110px; }
           <p class="mode-copy">Runs Discovery, Writing, Verification and Quality in sequence on your question.</p>
           <div class="field"><label for="question">Research question</label>
             <textarea id="question" class="lg" placeholder="e.g. What are the effects of intermittent fasting on cognitive performance?"></textarea></div>
+          <div id="clarify" class="banner info" hidden><span class="grow" id="clarifyText"></span><button class="btn sm ghost" type="button" id="clarifyAccept">Use suggestion</button><button class="btn sm ghost" type="button" id="clarifyEdit">Edit it</button><button class="btn sm quiet" type="button" id="clarifyKeep">Keep mine</button></div>
           <div class="options" id="directOptions"></div>
           <div class="form-foot">
             <button class="btn primary" type="submit" data-needs-model>Run the pipeline</button>
@@ -790,7 +791,7 @@ function applyProgress(ev) {
   }
 }
 
-function logLine(text, status, stage, ts) {
+function logLine(text, status, stage, ts, href) {
   const log = $("log");
   const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 12;
   log.querySelector(".empty")?.remove();
@@ -802,6 +803,7 @@ function logLine(text, status, stage, ts) {
   line.className = "line"; line.dataset.status = status || "";
   const t = document.createElement("time"); t.textContent = new Date(ts || Date.now()).toLocaleTimeString([], { hour12: false });
   const s = document.createElement("span"); s.textContent = text;
+  if (href) { const a = document.createElement("a"); a.href = href; a.target = "_blank"; a.rel = "noopener"; a.textContent = "open"; s.append(a); }
   line.append(t, s); log.appendChild(line);
   eventCount++; $("feedCount").textContent = `· ${eventCount} event${eventCount > 1 ? "s" : ""}`;
   if (atBottom) log.scrollTop = log.scrollHeight; else $("jump").hidden = false;
@@ -822,7 +824,11 @@ function follow(id, onResult) {
       applyProgress(ev);
       const secs = ev.details && ev.details.seconds != null ? ` (${ev.details.seconds}s)` : "";
       const quiet = ev.details?.raw_type && ev.message === ev.details.raw_type;
-      logLine(`${ev.message}${secs}`, quiet ? "quiet" : ev.status, ev.stage, Date.parse(ev.timestamp));
+      // Past runs on a similar question: one line each, linking to that run's draft.
+      if (ev.details?.raw_type === "related_runs") ev.details.runs.forEach((p) => logLine(
+        `You researched a similar question on ${new Date(p.created).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" })} (“${p.question}”) — QA ${p.overall_quality != null ? p.overall_quality.toFixed(1) : "n/a"} → `,
+        ev.status, ev.stage, Date.parse(ev.timestamp), `/research/runs/${encodeURIComponent(p.run_id)}/files/draft.md`));
+      else logLine(`${ev.message}${secs}`, quiet ? "quiet" : ev.status, ev.stage, Date.parse(ev.timestamp));
     } else if (ev.type === "result") {
       stopTimer();
       onResult(ev.result);
@@ -964,14 +970,42 @@ $("lockForm").onsubmit = async (e) => {
 };
 
 // ---- direct question ----
+// Clarify: one model check before the run. A vague question shows the
+// suggestion inline; whatever is in the box on the next submit is the choice.
+let clarifyPending = null;
+const clarification = (original, check, decision) => ({ original_question: original, decision,
+  specific: check.available ? check.specific : null, missing: check.missing || [], suggested_question: check.suggested_question || "" });
+const resubmit = (question) => { $("question").value = question; $("directForm").requestSubmit($("directForm").querySelector('[type="submit"]')); };
+$("clarifyAccept").onclick = () => resubmit(clarifyPending.check.suggested_question);
+$("clarifyKeep").onclick = () => resubmit(clarifyPending.original);
+$("clarifyEdit").onclick = () => { $("question").value = clarifyPending.check.suggested_question; $("question").focus(); };
+
 $("directForm").onsubmit = async (e) => {
   e.preventDefault();
   const question = $("question").value.trim();
   if (!question) { $("question").focus(); return notify("Type a research question first.", "warn"); }
-  const btn = e.submitter; busy(btn, true, "Starting…");
+  const btn = e.submitter;
+  let record;
+  if (clarifyPending) {
+    const { original, check } = clarifyPending;
+    record = clarification(original, check, question === original ? "keep" : question === check.suggested_question ? "accept" : "edit");
+  } else {
+    busy(btn, true, "Checking question…");
+    const check = await api("/research/clarify", { research_question: question }).catch(() => ({ available: false }));
+    busy(btn, false);
+    if (check.available && !check.specific) {
+      clarifyPending = { original: question, check };
+      $("clarifyText").innerHTML = `This question may be too broad to search well.${check.missing.length ? ` Missing: ${esc(check.missing.join(", "))}.` : ""}<br>Suggested: <b>${esc(check.suggested_question)}</b>`;
+      $("clarify").hidden = false;
+      return;
+    }
+    record = clarification(question, check, "keep");
+  }
+  busy(btn, true, "Starting…");
   hideAfter("shortlist", "lockin", "results"); $("notice").hidden = true;
   try {
-    const { run_id } = await api("/research/runs", { research_question: question, ...readOptions("d") });
+    const { run_id } = await api("/research/runs", { research_question: question, ...readOptions("d"), clarify: "ask", clarification: record });
+    clarifyPending = null; $("clarify").hidden = true;
     resetProgress();
     collapse("start", `Question: <b>${esc(question)}</b>`);
     follow(run_id, showResults);
@@ -982,7 +1016,7 @@ $("startOver").onclick = () => {
   if (source) source.close();
   stopTimer();
   const wasLive = ORDER.some((k) => st[k].state === "running");
-  runId = null; shortlist = null;
+  runId = null; shortlist = null; clarifyPending = null; $("clarify").hidden = true;
   history.replaceState(null, "", location.pathname);
   hideAfter("feed", "shortlist", "lockin", "results");
   $("chatLog").innerHTML = ""; $("runError").hidden = true; $("elapsed").hidden = true;
@@ -995,6 +1029,7 @@ const tone = (score) => score < 2.5 ? "bad" : score < 3.5 ? "warn" : "ok";
 const FILES = [
   ["paper.pdf", "Paper", "PDF"], ["paper.tex", "LaTeX source", ".tex"], ["draft.md", "Draft", ".md"],
   ["quality_report.md", "Quality report", ".md"], ["validation_report.md", "Citation report", ".md"], ["references.md", "References", ".md"],
+  ["evidence_table.md", "Evidence table", ".md"],
 ];
 
 function showResults(r) {
@@ -1054,6 +1089,7 @@ function showResults(r) {
     "Draft": qa.final_draft_markdown,
     "Quality report": qa.quality_report_markdown,
     "Citation verification": qa.final_validation_report,
+    "Evidence": "",
     "References": qa.final_references.map((x) => "- " + x).join("\n"),
     "Papers": d.selected_papers.map((p, i) => `### ${i + 1}. ${p.title}\n*${[p.authors.slice(0, 4).join(", ") + (p.authors.length > 4 ? " et al." : ""), p.venue, p.year].filter(Boolean).join(" · ")}*${p.doi ? `  \nDOI: [${p.doi}](https://doi.org/${p.doi.replace(/^https?:\/\/doi.org\//, "")})` : ""}${p.relevance_reason ? `\n\n${p.relevance_reason}` : ""}`).join("\n\n"),
     "Research gaps": d.research_gaps.map((g) => `### ${g.title}\n*${g.gap_type} · impact ${g.impact}*\n\n${g.description}`).join("\n\n"),
@@ -1065,6 +1101,11 @@ function showResults(r) {
   const show = (k) => { $("doc").innerHTML = md(docs[k] || "_Nothing here for this run._"); };
   document.querySelectorAll('input[name="doc"]').forEach((t) => t.onchange = () => show(t.value));
   show("Draft");
+  // The evidence table is only on disk (final/evidence_table.md), not in the result JSON.
+  fetch(`/research/runs/${r.run_id}/files/evidence_table.md`).then((res) => res.ok ? res.text() : "").then((t) => {
+    docs["Evidence"] = t;
+    if (document.querySelector('input[name="doc"]:checked')?.value === "Evidence") show("Evidence");
+  }).catch(() => {});
   $("results").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
