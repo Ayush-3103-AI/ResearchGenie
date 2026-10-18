@@ -72,6 +72,8 @@ researchgenie doctor <run id> --yes --json      # diagnose, apply the fix, resum
 | 6 | No run with that id or folder |
 | 7 | `result` asked of a run that is still going |
 
+Other tools can read your runs, search your library and check DOIs through a read-only MCP server, `researchgenie-mcp`. Setup for Claude Code, Claude Desktop and OpenClaw is in [docs/mcp-server.md](docs/mcp-server.md).
+
 ## 🧭 Not sure what to research yet?
 
 ```
