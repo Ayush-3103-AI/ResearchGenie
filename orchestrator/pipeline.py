@@ -107,15 +107,19 @@ def _adapt_inner_event(run_id: str, stage: str, service: str, inner: dict[str, A
     state = inner.get("state")
     if state in ("running", "done", "failed"):
         status = state
-    elif inner_type == "source_error":
+    elif inner_type in ("source_error", "provider_exhausted"):
         status = "warning"
     else:
         status = "running"
     message = inner.get("message") or inner_type
     title = message if len(message) <= 60 else f"{stage.replace('_', ' ').title()} update"
+    # The scholarly gateway's rate_limited / provider_exhausted events carry
+    # their host, wait and remedy through to the standard shape.
+    details = {"raw_type": inner_type,
+               **{k: inner[k] for k in ("host", "wait_seconds", "remedy") if k in inner}}
     return _progress_event(
         run_id=run_id, stage=stage, service=service, status=status,
-        title=title, message=message, details={"raw_type": inner_type},
+        title=title, message=message, details=details,
     )
 
 

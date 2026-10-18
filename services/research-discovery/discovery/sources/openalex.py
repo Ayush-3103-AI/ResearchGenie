@@ -1,23 +1,14 @@
-"""OpenAlex API connector (free, no key; a mailto gets the faster polite pool)."""
+"""OpenAlex API connector (free, no key; the gateway adds the contact mailto)."""
 
 from __future__ import annotations
 
-import os
-
 import httpx
 
+from shared.utilities import scholarly_gateway
+
 from ..models import Paper, normalize_doi
-from ._http_retry import get_with_retry
 
 SEARCH_URL = "https://api.openalex.org/works"
-
-
-def _polite(params: dict) -> dict:
-    """OpenAlex serves requests carrying a mailto from a faster pool."""
-    email = os.getenv("CONTACT_EMAIL")
-    if email:
-        params["mailto"] = email
-    return params
 
 
 def _reconstruct_abstract(inverted_index: dict | None) -> str | None:
@@ -42,12 +33,11 @@ async def search(http: httpx.AsyncClient, queries: dict, limit: int,
         # but a *verification* search must not hide an answering paper merely because
         # OpenAlex lacks its abstract — callers pass require_abstract=False there.
         params["filter"] = "has_abstract:true"
-    _polite(params)
 
     # OpenAlex is the sole backend for the per-candidate verification searches,
     # so a transient 429/5xx must not silently lose a candidate's evidence —
-    # see _http_retry.py (shared with the other sources, see DECISIONS.md D-028).
-    resp = await get_with_retry(http, SEARCH_URL, params)
+    # the gateway retries it (and never retries a not_enough_credits 429).
+    resp = await scholarly_gateway.get(http, SEARCH_URL, params=params)
     resp.raise_for_status()
 
     papers = []
@@ -94,7 +84,7 @@ async def search(http: httpx.AsyncClient, queries: dict, limit: int,
 # Works-count-by-year queries (Trend & Gap Advisor, pipeline stage 0).
 #
 # Added here rather than in a second OpenAlex client so the advisor inherits
-# this module's already-proven polite-pool handling, retry/backoff, and
+# this module's gateway-routed pacing, retry/backoff, and
 # abstract reconstruction (see DECISIONS.md D-028) instead of re-implementing
 # three things that have each already been a real bug once.
 # ---------------------------------------------------------------------------
@@ -136,7 +126,7 @@ async def topic_counts(http: httpx.AsyncClient, *, year_range: tuple[int, int],
     if search:
         params["search"] = search
 
-    resp = await get_with_retry(http, SEARCH_URL, _polite(params))
+    resp = await scholarly_gateway.get(http, SEARCH_URL, params=params)
     resp.raise_for_status()
     return {
         _topic_key(group["key"]): (group.get("key_display_name") or "", group.get("count", 0))
@@ -160,7 +150,7 @@ async def works_for_topic(http: httpx.AsyncClient, topic_id: str, *,
         "sort": "cited_by_count:desc",
         "per-page": min(limit, 100),
     }
-    resp = await get_with_retry(http, SEARCH_URL, _polite(params))
+    resp = await scholarly_gateway.get(http, SEARCH_URL, params=params)
     resp.raise_for_status()
 
     papers = []

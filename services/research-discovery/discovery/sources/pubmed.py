@@ -3,24 +3,16 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import xml.etree.ElementTree as ET
 
 import httpx
 
+from shared.utilities import scholarly_gateway
+
 from ..models import Paper, normalize_doi
-from ._http_retry import get_with_retry
 
 ESEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 EFETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
-
-
-def _common_params() -> dict:
-    params = {"tool": "lit-gap"}
-    email = os.getenv("CONTACT_EMAIL")
-    if email:
-        params["email"] = email
-    return params
 
 
 def _text(el: ET.Element | None) -> str | None:
@@ -30,11 +22,9 @@ def _text(el: ET.Element | None) -> str | None:
 
 
 async def search(http: httpx.AsyncClient, queries: dict, limit: int) -> list[Paper]:
-    # Previously two sequential, non-retried GETs — a transient rate-limit/
-    # 5xx on either call permanently failed this source with no recovery at
-    # all (see DECISIONS.md D-028).
-    resp = await get_with_retry(http, ESEARCH_URL, {
-        **_common_params(),
+    # Both calls go through the gateway, which paces NCBI at 3 req/s, retries
+    # transient errors and adds the required `tool` and `email` parameters.
+    resp = await scholarly_gateway.get(http, ESEARCH_URL, params={
         "db": "pubmed",
         "term": queries["pubmed"],
         "retmax": min(limit, 100),
@@ -46,8 +36,7 @@ async def search(http: httpx.AsyncClient, queries: dict, limit: int) -> list[Pap
     if not ids:
         return []
 
-    resp = await get_with_retry(http, EFETCH_URL, {
-        **_common_params(),
+    resp = await scholarly_gateway.get(http, EFETCH_URL, params={
         "db": "pubmed",
         "id": ",".join(ids),
         "retmode": "xml",
