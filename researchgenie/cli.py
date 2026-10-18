@@ -37,9 +37,12 @@ from researchgenie import config as rg_config  # noqa: E402
 from researchgenie import ollama_manager as om  # noqa: E402
 from researchgenie.setup_wizard import run_setup_wizard  # noqa: E402
 from researchgenie.theme import ACCENT, ERROR, MUTED, OK, WARN  # noqa: E402
-from researchgenie.tui import PipelineView, render_banner, render_completion, render_failure, render_summary  # noqa: E402
+from researchgenie.tui import (  # noqa: E402
+    PipelineView, render_banner, render_completion, render_failure, render_provider_status,
+    render_summary,
+)
 from shared.contracts.pipeline_contract import Clarification, ResearchRequest  # noqa: E402
-from shared.utilities import library  # noqa: E402
+from shared.utilities import library, scholarly_gateway  # noqa: E402
 
 _TARGET_FORMATS = ["IEEE", "Springer"]
 
@@ -195,7 +198,7 @@ async def _run_research(console: Console, request: ResearchRequest,
         # directory isn't attached to PipelineError itself, so we can only
         # point the user to their run history rather than one exact path.
         render_failure(
-            console, stage="unknown", reason=str(error),
+            console, stage="unknown", reason=scholarly_gateway.redact(str(error)),
             run_directory=str(ROOT / "outputs") + " (see the most recent run folder)",
         )
         return
@@ -228,6 +231,7 @@ async def _run_research(console: Console, request: ResearchRequest,
 
 def _run_app(console: Console, config: rg_config.Config) -> None:
     render_banner(console)
+    render_provider_status(console, scholarly_gateway.provider_status())
     console.print(f"[{OK}]Ready to research.[/{OK}]\n")
     request = _collect_request(console)
     render_summary(

@@ -264,3 +264,21 @@ def test_evidence_table_is_downloadable_and_has_a_tab(client, monkeypatch, tmp_p
     assert response.text.startswith("# Evidence table")
     page = client.get("/").text
     assert '["evidence_table.md", "Evidence table", ".md"]' in page and '"Evidence": ""' in page
+
+
+def test_system_endpoint_reports_each_scholarly_provider_without_secrets(client, monkeypatch):
+    monkeypatch.setattr(orchestrator_api.llm_provider, "health_check", _async_true)
+    monkeypatch.setenv("OPENALEX_API_KEY", "oa-secret-0123456789")
+    monkeypatch.setenv("CONTACT_EMAIL", "student@example.edu")
+    monkeypatch.delenv("NCBI_API_KEY", raising=False)
+    body = client.get("/system").json()
+    providers = {p["name"]: p for p in body["providers"]}
+    assert providers["OpenAlex"]["access"] == "keyed"
+    assert providers["PubMed (NCBI)"]["access"] == "identified"
+    assert providers["Semantic Scholar"]["access"] == "anonymous"
+    assert all(p["health"] in ("healthy", "degraded") for p in body["providers"])
+    assert "oa-secret-0123456789" not in str(body) and "student@example.edu" not in str(body)
+
+
+async def _async_true():
+    return True

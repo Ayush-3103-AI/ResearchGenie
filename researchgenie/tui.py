@@ -107,6 +107,17 @@ def render_banner(console: Console) -> None:
     ))
 
 
+def render_provider_status(console: Console, providers: list[dict]) -> None:
+    """One line per literature source: keyed / identified / anonymous, and
+    healthy / degraded (#5). `providers` is scholarly_gateway.provider_status()."""
+    table = Table.grid(padding=(0, 2))
+    for p in providers:
+        health = f"[{OK}]healthy[/{OK}]" if p["health"] == "healthy" else f"[{WARN}]degraded[/{WARN}]"
+        note = f"[{MUTED}]{p['reason']}[/{MUTED}]" if p["reason"] else ""
+        table.add_row(p["name"], p["access"], health, note)
+    console.print(Panel(table, title="Literature sources", border_style=SECONDARY))
+
+
 def render_summary(console: Console, *, question: str, corpus_size: int,
                    target_format: str, provider_label: str,
                    target_words: int | None = None) -> None:

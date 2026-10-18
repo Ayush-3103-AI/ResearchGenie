@@ -12,7 +12,8 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 
 from researchgenie import ollama_manager as om
-from researchgenie.config import Config, save
+from researchgenie import scholarly_setup
+from researchgenie.config import Config, load, save
 from researchgenie.theme import ACCENT, MUTED, OK, WARN
 
 DEFAULT_OLLAMA_MODEL = "qwen3.5:9b"
@@ -112,11 +113,53 @@ def _setup_gemini(console: Console) -> str | None:
     return key.strip() or None
 
 
+# Priority order (#5): (config field, prompt, one-line reason with the link, live check name).
+# No Semantic Scholar key — the project will not get an S2 plan.
+_SCHOLARLY_STEPS = (
+    ("openalex_api_key", "OpenAlex API key",
+     "Free and instant; raises your daily searches from about 100 to about 1,000. "
+     f"Get one at {scholarly_setup.OPENALEX_KEY_URL}",
+     "check_openalex_key"),
+    ("contact_email", "Contact email",
+     "Puts your searches in Crossref's faster 'polite pool', and NCBI requires one. "
+     "Only the providers see it.",
+     "check_contact_email"),
+    ("ncbi_api_key", "NCBI (PubMed) API key",
+     "Free and instant; lets PubMed searches run at 10 instead of 3 requests a second. "
+     f"Get one at {scholarly_setup.NCBI_KEY_URL}",
+     "check_ncbi_key"),
+)
+
+
+def setup_scholarly_access(console: Console, config: Config) -> None:
+    """Asks for the three optional scholarly values, checks each live, and
+    stores them on `config`. Enter skips (or keeps the saved value)."""
+    console.print(Panel(
+        "[bold]Scholarly access (optional, about two minutes)[/bold]\n\n"
+        "Three free values make literature searches faster and more reliable. "
+        "Press Enter to skip any of them. They are stored only on this device.",
+        title="Search sources", border_style=ACCENT,
+    ))
+    for field, label, reason, check_name in _SCHOLARLY_STEPS:
+        saved = getattr(config, field)
+        console.print(f"\n[bold]{label}[/bold] — [{MUTED}]{reason}[/{MUTED}]")
+        keep = " (Enter keeps the saved one)" if saved else " (Enter to skip)"
+        while True:
+            value = (Prompt.ask(f"{label}{keep}", password=field != "contact_email",
+                                default="", show_default=False) or "").strip()
+            if not value:
+                break
+            ok, message = getattr(scholarly_setup, check_name)(value)
+            console.print(f"[{OK if ok else WARN}]{message}[/{OK if ok else WARN}]")
+            if ok is not False:
+                setattr(config, field, value)
+                break
+
+
 def run_setup_wizard(console: Console | None = None) -> Config:
     """Runs the interactive wizard and returns the resulting (already saved)
-    Config. External research-source APIs are not part of this wizard —
-    every literature source this pipeline uses is keyless by design (see
-    DECISIONS.md D-007/D-012), so there is nothing to ask about there."""
+    Config: the AI engine, then the optional scholarly keys and email (#5).
+    Semantic Scholar stays keyless (no S2 plan)."""
     console = console or Console()
     console.print(Panel.fit(
         "[bold]✦ ResearchGenie Setup[/bold]\n"
@@ -125,7 +168,9 @@ def run_setup_wizard(console: Console | None = None) -> Config:
     ))
 
     provider = _choose_provider(console)
-    config = Config(provider=provider)
+    previous = load()
+    config = Config(provider=provider, openalex_api_key=previous.openalex_api_key,
+                    contact_email=previous.contact_email, ncbi_api_key=previous.ncbi_api_key)
 
     if provider == "ollama":
         config.ollama_model = DEFAULT_OLLAMA_MODEL
@@ -136,6 +181,8 @@ def run_setup_wizard(console: Console | None = None) -> Config:
         config.gemini_api_key = api_key
         config.setup_complete = api_key is not None
 
+    if config.setup_complete:
+        setup_scholarly_access(console, config)
     save(config)
     if config.setup_complete:
         console.print(f"\n[{OK}]✓ Setup complete.[/{OK}]\n")

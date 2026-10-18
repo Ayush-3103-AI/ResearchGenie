@@ -17,6 +17,7 @@ from typing import Any, Awaitable, Callable
 
 from orchestrator import pipeline
 from shared.contracts.pipeline_contract import PipelineResult, ResearchRequest
+from shared.utilities.scholarly_gateway import redact
 
 RunPipelineFn = Callable[..., Any]
 
@@ -113,7 +114,7 @@ async def _drive_run(
     except Exception as error:  # PipelineError, or any unexpected stage failure
         state.status = "failed"
         # Some exceptions (e.g. httpx timeouts) stringify to "" — never report a blank failure.
-        state.error = str(error) or type(error).__name__
+        state.error = redact(str(error)) or type(error).__name__
         _publish(state, {"type": "error", "message": state.error})
     finally:
         _publish(state, {"type": "end"})

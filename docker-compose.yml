@@ -23,6 +23,8 @@ services:
       OLLAMA_HOST: http://ollama:11434
       LOCAL_AI_MODEL: ${LOCAL_AI_MODEL:-qwen3.5:9b}
       CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+      OPENALEX_API_KEY: ${OPENALEX_API_KEY:-}
+      NCBI_API_KEY: ${NCBI_API_KEY:-}
     depends_on:
       - ollama
 
@@ -58,6 +60,8 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+      OPENALEX_API_KEY: ${OPENALEX_API_KEY:-}
+      NCBI_API_KEY: ${NCBI_API_KEY:-}
 
 volumes:
   ollama-models:

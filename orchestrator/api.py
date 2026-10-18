@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -37,20 +38,30 @@ from orchestrator import run_registry  # noqa: E402
 from orchestrator.pipeline import PipelineError, run_pipeline, run_trend_advisor_stage  # noqa: E402
 from orchestrator.pipeline import discovery_service  # noqa: E402 — for the clarify step
 from researchgenie import advisor_cli  # noqa: E402
+from researchgenie import config as rg_config  # noqa: E402
 from shared.contracts.pipeline_contract import PipelineResult, ResearchRequest  # noqa: E402
 from shared.contracts.trend_contract import TrendAdvisorRequest, TrendAdvisorResult  # noqa: E402
-from shared.utilities import library, llm_provider  # noqa: E402
+from shared.utilities import library, llm_provider, scholarly_gateway  # noqa: E402
 
 FRONTEND = ROOT / "frontend" / "index.html"
 # Only the files the pipeline itself writes to <run>/final/ are downloadable.
 FINAL_FILES = {"draft.md", "quality_report.md", "validation_report.md",
                "references.md", "evidence_table.md", "paper.tex", "paper.pdf"}
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    # The scholarly keys and email saved by `researchgenie config` (#5);
+    # environment variables already set win.
+    rg_config.apply_scholarly(rg_config.load())
+    yield
+
+
 app = FastAPI(
     title="AI Research Assistant",
     description="Local-first pipeline: research request -> evidence-grounded, "
                 "citation-verified, quality-audited draft.",
     version="0.1.0",
+    lifespan=_lifespan,
 )
 
 
@@ -152,6 +163,8 @@ async def system_status() -> dict[str, object]:
         else llm_provider.DEFAULT_MODEL,
         "model_ready": await llm_provider.health_check(),
         "domains": [{"key": key, "label": label} for key, label in advisor_cli.DOMAINS],
+        # keyed / identified / anonymous and healthy / degraded per source (#5)
+        "providers": scholarly_gateway.provider_status(),
     }
 
 

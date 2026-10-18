@@ -28,6 +28,7 @@ from shared.contracts.trend_contract import (  # noqa: E402
 from shared.contracts.verification_contract import VerificationRequest  # noqa: E402
 from shared.contracts.writing_contract import WritingRequest  # noqa: E402
 from shared.utilities import evidence_table, latex_export, library  # noqa: E402
+from shared.utilities.scholarly_gateway import redact  # noqa: E402
 from shared.utilities.run_paths import slugify  # noqa: E402
 
 
@@ -170,8 +171,9 @@ async def run_pipeline(
 
     def append(event: dict[str, Any]) -> None:
         log_path.parent.mkdir(parents=True, exist_ok=True)
+        line = json.dumps(event, ensure_ascii=False, default=lambda o: o.model_dump(mode="json"))
         with log_path.open("a", encoding="utf-8") as log:
-            log.write(json.dumps(event, ensure_ascii=False, default=lambda o: o.model_dump(mode="json")) + "\n")
+            log.write(redact(line) + "\n")  # no key or email in a run folder (#5, D-023)
 
     try:
         async for event in _run_stages(request, output_root=output_root, run_id=run_id, **stage_options):

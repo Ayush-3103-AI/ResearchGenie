@@ -368,3 +368,90 @@ def test_host_policy_sets_fan_out_concurrency():
         scholarly_gateway.POLICIES["www.ebi.ac.uk"].concurrency
     assert scholarly_gateway.concurrency("https://unknown.example.org/p.pdf") == \
         scholarly_gateway.DEFAULT_POLICY.concurrency
+
+
+# ------------------------------------------------------------- keys (#5)
+
+OPENALEX_KEY, NCBI_KEY, EMAIL = "oa-secret-key-123", "ncbi-secret-key-456", "student@example.edu"
+
+
+def _keys(monkeypatch):
+    monkeypatch.setenv("OPENALEX_API_KEY", OPENALEX_KEY)
+    monkeypatch.setenv("NCBI_API_KEY", NCBI_KEY)
+    monkeypatch.setenv("CONTACT_EMAIL", EMAIL)
+
+
+def test_each_provider_gets_its_own_identity_and_semantic_scholar_never_a_key(monkeypatch):
+    _keys(monkeypatch)
+    fake = FakeTime()
+    gateway = _gateway(fake)
+    transport, seen = _replies(httpx.Response(200))
+    for url in (OPENALEX, NCBI, "https://api.crossref.org/works/10.1/x", S2):
+        _get(gateway, transport, url)
+    openalex, ncbi, crossref, s2 = (r.url.params for r in seen)
+
+    assert openalex["api_key"] == OPENALEX_KEY and openalex["mailto"] == EMAIL
+    assert ncbi["api_key"] == NCBI_KEY and ncbi["tool"] and ncbi["email"] == EMAIL
+    assert crossref["mailto"] == EMAIL and "api_key" not in crossref
+    assert not s2 and not any(k.lower() in ("x-api-key", "api_key") for k in seen[3].headers)
+
+
+def test_a_keyed_ncbi_is_paced_at_its_keyed_rate(monkeypatch):
+    monkeypatch.delenv("NCBI_API_KEY", raising=False)
+    fake = FakeTime()
+    unkeyed = _gateway(fake)
+    transport, _ = _replies(httpx.Response(200))
+    for _ in range(4):
+        _get(unkeyed, transport, NCBI)
+    assert fake.sleeps and fake.sleeps[-1] == pytest.approx(1 / 3)
+
+    monkeypatch.setenv("NCBI_API_KEY", NCBI_KEY)
+    fake = FakeTime()
+    keyed = _gateway(fake)
+    for _ in range(11):
+        _get(keyed, transport, NCBI)
+    assert fake.sleeps == [pytest.approx(1 / 10)]
+
+
+def test_no_key_or_email_leaks_into_errors_tracebacks_or_logs(monkeypatch, caplog):
+    """D-023's lesson: the keys travel as query parameters (neither OpenAlex
+    nor NCBI accepts a header), so every message that echoes a URL must not."""
+    import logging
+    import traceback
+    _keys(monkeypatch)
+    caplog.set_level(logging.DEBUG)
+    gateway = _gateway(FakeTime())
+    transport, _ = _replies(httpx.Response(404))
+    resp = _get(gateway, transport, OPENALEX, params={"search": "x"})
+    with pytest.raises(httpx.HTTPStatusError) as caught:
+        resp.raise_for_status()
+
+    shown = str(caught.value) + "".join(traceback.format_exception(caught.value)) + caplog.text
+    assert "api.openalex.org" in shown  # the URL is still there, just without its secrets
+    for secret in (OPENALEX_KEY, EMAIL):
+        assert secret not in shown
+    assert scholarly_gateway.redact(f"key={OPENALEX_KEY}&email={EMAIL}") == "key=***&email=***"
+
+
+def test_provider_status_shows_access_and_health_per_provider(monkeypatch):
+    for name in ("OPENALEX_API_KEY", "NCBI_API_KEY", "CONTACT_EMAIL"):
+        monkeypatch.delenv(name, raising=False)
+    fake = FakeTime()
+    gateway = _gateway(fake)
+    status = {p["host"]: p for p in gateway.provider_status()}
+    assert status["api.openalex.org"]["access"] == "anonymous"
+    assert status["api.openalex.org"]["health"] == "healthy"
+
+    monkeypatch.setenv("CONTACT_EMAIL", EMAIL)
+    monkeypatch.setenv("OPENALEX_API_KEY", OPENALEX_KEY)
+    status = {p["host"]: p for p in gateway.provider_status()}
+    assert status["api.openalex.org"]["access"] == "keyed"
+    assert status["api.crossref.org"]["access"] == "identified"
+    assert status["api.semanticscholar.org"]["access"] == "anonymous"  # never keyed (no S2 plan)
+
+    transport, _ = _replies(httpx.Response(429, text="not_enough_credits"))
+    with pytest.raises(ProviderExhausted):
+        _get(gateway, transport, OPENALEX)
+    status = {p["host"]: p for p in gateway.provider_status()}
+    assert status["api.openalex.org"]["health"] == "degraded"
+    assert OPENALEX_KEY not in str(status) and EMAIL not in str(status)

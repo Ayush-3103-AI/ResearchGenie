@@ -12,7 +12,10 @@ transient. The gateway owns four things, all driven by the POLICIES table:
 - retry: jittered exponential backoff on 429/5xx that honors Retry-After and
   rate-limit reset headers, up to a per-host cap on total waiting.
 - identity: the contact email (CONTACT_EMAIL) as `mailto`, NCBI's `tool` and
-  `email` parameters, and a User-Agent that names the tool.
+  `email` parameters, the free OpenAlex and NCBI keys (OPENALEX_API_KEY,
+  NCBI_API_KEY, #5) and a User-Agent that names the tool. Neither provider
+  accepts its key in a header, so keys travel as query parameters and every
+  URL the gateway hands back is redacted (`redact`, D-023's lesson).
 - circuit breaker: repeated 429/5xx responses within one run, or an OpenAlex
   `not_enough_credits` 429, mark the host exhausted. Later calls fail fast
   with ProviderExhausted and the run continues on the other sources.
@@ -30,6 +33,7 @@ import asyncio
 import contextvars
 import datetime
 import email.utils
+import logging
 import os
 import random
 import threading
@@ -55,6 +59,8 @@ class HostPolicy:
     concurrency: int          # requests in flight at once
     identity: str             # "mailto" | "ncbi" | "none" (every host also gets the User-Agent)
     remedy: str               # what the user can do once the host is exhausted
+    key_env: str | None = None     # env var holding the provider's free API key, sent as `api_key`
+    keyed_rate: float | None = None  # sustained rate once that key is set (burst follows it)
     attempts: int = 4         # tries per request, the first one included
     max_retry_wait: float = 60.0   # cap on total waiting per request, seconds
     backoff: float = 1.0      # first backoff step when the server gives no wait
@@ -67,10 +73,10 @@ class HostPolicy:
 POLICIES: dict[str, HostPolicy] = {
     "api.openalex.org": HostPolicy(
         name="OpenAlex", rate=10, burst=10, concurrency=4, identity="mailto",
-        credits_marker="not_enough_credits",
-        # ponytail: name the OpenAlex API key setting here once #5 adds it.
-        remedy="Wait for OpenAlex's rate limit or daily budget to reset; "
-               "Discovery continues on the other sources."),
+        credits_marker="not_enough_credits", key_env="OPENALEX_API_KEY",
+        # The key raises the daily budget (about 100 -> 1,000 searches), not the pace.
+        remedy="Add a free OpenAlex API key (`researchgenie config`) for a larger daily "
+               "budget, or wait for it to reset; Discovery continues on the other sources."),
     # Keyless only: the project will not get an S2 key, so no key header is
     # ever sent. The shared anonymous pool 429s often; one slow connection and
     # a breaker that trips on the first 429 burst keep a busy pool to seconds.
@@ -81,7 +87,9 @@ POLICIES: dict[str, HostPolicy] = {
                "Discovery continues on the other sources."),
     "eutils.ncbi.nlm.nih.gov": HostPolicy(
         name="PubMed (NCBI)", rate=3, burst=3, concurrency=3, identity="ncbi",
-        remedy="Set CONTACT_EMAIL so NCBI can identify this tool, or try again later."),
+        key_env="NCBI_API_KEY", keyed_rate=10,
+        remedy="Add a contact email and a free NCBI API key (`researchgenie config`), "
+               "or try again later."),
     "export.arxiv.org": HostPolicy(
         name="arXiv", rate=1 / 3, burst=1, concurrency=1, identity="none",
         backoff=3.0,
@@ -89,7 +97,8 @@ POLICIES: dict[str, HostPolicy] = {
     # Single-record pace without the polite pool; Citation Verification's DOI lookups (#4).
     "api.crossref.org": HostPolicy(
         name="Crossref", rate=5, burst=5, concurrency=1, identity="mailto",
-        remedy="Set CONTACT_EMAIL to use Crossref's polite pool, or try again later."),
+        remedy="Add a contact email (`researchgenie config`) to use Crossref's polite "
+               "pool, or try again later."),
     # No published limit — be conservative.
     "www.ebi.ac.uk": HostPolicy(
         name="Europe PMC", rate=5, burst=5, concurrency=4, identity="none",
@@ -101,6 +110,39 @@ DEFAULT_POLICY = HostPolicy(
     name="Open-access host", rate=2, burst=2, concurrency=2, identity="none",
     attempts=2, max_retry_wait=10,
     remedy="This host is refusing requests; other full-text routes are still tried.")
+
+
+# Environment variables whose values must never be shown to the user.
+SECRET_ENVS = ("OPENALEX_API_KEY", "NCBI_API_KEY", "CONTACT_EMAIL", "GEMINI_API_KEY")
+DEGRADED_SECONDS = 15 * 60  # a tripped breaker shows the provider as degraded this long
+
+
+def redact(text: str) -> str:
+    """`text` with every configured key and the contact email masked."""
+    for name in SECRET_ENVS:
+        value = os.getenv(name)
+        if value:
+            text = text.replace(value, "***")
+    return text
+
+
+class _RedactLogs(logging.Filter):
+    """httpx logs each request URL at INFO; mask the secrets in it."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        cleaned = redact(message)
+        if cleaned != message:
+            record.msg, record.args = cleaned, None
+        return True
+
+
+for _logger in ("httpx", "httpcore"):
+    logging.getLogger(_logger).addFilter(_RedactLogs())
+
+
+def _keyed(policy: "HostPolicy") -> bool:
+    return bool(policy.key_env and os.getenv(policy.key_env))
 
 
 def host_of(url: str) -> str:
@@ -256,6 +298,8 @@ def _next_utc_midnight(now: float) -> float:
 def _identify(policy: HostPolicy, params: dict | None, headers: dict | None) -> tuple[dict, dict]:
     params = dict(params or {})
     headers = dict(headers or {})
+    if _keyed(policy):
+        params.setdefault("api_key", os.environ[policy.key_env])
     email_address = os.getenv("CONTACT_EMAIL", "")
     if policy.identity == "mailto" and email_address:
         params.setdefault("mailto", email_address)
@@ -288,12 +332,44 @@ class Gateway:
         # ponytail: in-process only; #6 persists this in the cache DB so the
         # next run knows before it starts.
         self._exhausted_until: dict[str, float] = {}
+        self._tripped_at: dict[str, float] = {}  # wall clock of the last breaker trip, any run
 
     def _bucket(self, host: str, policy: HostPolicy) -> _Bucket:
+        # Keyed and keyless traffic pace separately, so adding a key mid-process takes effect.
+        keyed = _keyed(policy) and policy.keyed_rate is not None
         with self._buckets_lock:
-            if host not in self._buckets:
-                self._buckets[host] = _Bucket(policy.rate, policy.burst, self._clock)
-            return self._buckets[host]
+            if (host, keyed) not in self._buckets:
+                rate = policy.keyed_rate if keyed else policy.rate
+                burst = max(policy.burst, int(rate)) if keyed else policy.burst
+                self._buckets[(host, keyed)] = _Bucket(rate, burst, self._clock)
+            return self._buckets[(host, keyed)]
+
+    def provider_status(self) -> list[dict]:
+        """Each named provider's access (keyed / identified / anonymous) and
+        health (healthy / degraded), for the CLI and the web header. Never
+        carries a key or the email itself."""
+        now = self._wall_clock()
+        identified = bool(os.getenv("CONTACT_EMAIL"))
+        status = []
+        for host, policy in POLICIES.items():
+            if _keyed(policy):
+                access = "keyed"
+            elif identified and policy.identity in ("mailto", "ncbi"):
+                access = "identified"
+            else:
+                access = "anonymous"
+            until = self._exhausted_until.get(host)
+            if until is not None and until > now:
+                health, reason = "degraded", "daily budget used up"
+            elif now - self._tripped_at.get(host, -DEGRADED_SECONDS) < DEGRADED_SECONDS:
+                health, reason = "degraded", "recent rate-limit or server errors"
+            else:
+                health, reason = "healthy", ""
+            if host == "api.semanticscholar.org":
+                reason = reason or "keyless shared pool, best-effort"
+            status.append({"name": policy.name, "host": host, "access": access,
+                           "health": health, "reason": reason})
+        return status
 
     def _slot(self, host: str, policy: HostPolicy) -> asyncio.Semaphore:
         per_loop = self._slots.setdefault(asyncio.get_running_loop(), {})
@@ -345,6 +421,10 @@ class Gateway:
 
             request = http.build_request("GET", url, params=params, headers=headers, **extra)
             resp = await http.send(request, stream=stream)
+            shown = redact(str(request.url))
+            if shown != str(request.url):
+                # raise_for_status and error reprs echo resp.request.url.
+                resp.request = httpx.Request("GET", shown)
             if resp.status_code not in RETRY_STATUSES:
                 run.failures[host] = 0
                 return resp
@@ -363,6 +443,7 @@ class Gateway:
             run.failures[host] = run.failures.get(host, 0) + 1
             if run.failures[host] >= policy.breaker_threshold:
                 await resp.aclose()
+                self._tripped_at[host] = self._wall_clock()
                 run.tripped[host] = ProviderExhausted(
                     host, f"{run.failures[host]} rate-limit/server errors in a row "
                           f"(last HTTP {resp.status_code})", policy.remedy)
@@ -407,6 +488,11 @@ async def get(http: httpx.AsyncClient, url: str, *, params: dict | None = None,
               headers: dict | None = None, timeout: float | None = None) -> httpx.Response:
     """GET `url` through the process-wide gateway (see Gateway.get)."""
     return await _gateway.get(http, url, params=params, headers=headers, timeout=timeout)
+
+
+def provider_status() -> list[dict]:
+    """Per-provider access and health from the process-wide gateway."""
+    return _gateway.provider_status()
 
 
 def stream(http: httpx.AsyncClient, url: str, *, params: dict | None = None,
