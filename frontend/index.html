@@ -433,7 +433,7 @@ textarea.lg { font-size: 16px; min-height: 110px; }
       <ol class="stages" id="stages"></ol>
       <p class="activity" id="activity" aria-live="polite"></p>
     </div>
-    <div id="runError" class="banner bad" hidden><span class="grow" id="runErrorText"></span><button class="btn sm ghost" type="button" id="reconnect">Reconnect</button></div>
+    <div id="runError" class="banner bad" hidden><span class="grow" id="runErrorText"></span><button class="btn sm ghost" type="button" id="resume" hidden>Resume</button><button class="btn sm ghost" type="button" id="reconnect">Reconnect</button></div>
     <p class="rail-foot">Every stage saves its output to disk, so a run can be inspected and audited later. Reloading this page reconnects to a run in progress.</p>
   </aside>
 
@@ -852,8 +852,8 @@ function follow(id, onResult) {
     } else if (ev.type === "error") {
       ORDER.forEach((k) => { if (st[k].state === "running") setState(k, "failed"); });
       $("runErrorText").textContent = "Run failed: " + ev.message;
-      $("runError").hidden = false; $("reconnect").hidden = true;
-      $("activity").textContent = "The run stopped. Nothing after the failed stage was produced.";
+      $("runError").hidden = false; $("reconnect").hidden = true; $("resume").hidden = false;
+      $("activity").textContent = "The run stopped. Nothing after the failed stage was produced. Resume picks up from the failed stage.";
       logLine(ev.message, "error", null);
       stopTimer();
     }
@@ -863,10 +863,19 @@ function follow(id, onResult) {
     // Never let EventSource auto-retry: a reconnect replays the whole history.
     source.close(); stopTimer();
     $("runErrorText").textContent = "Lost connection to the live event stream. The run may still be going on the server.";
-    $("runError").hidden = false; $("reconnect").hidden = false;
+    $("runError").hidden = false; $("reconnect").hidden = false; $("resume").hidden = true;
   };
 }
 $("reconnect").onclick = () => { if (!runId) return; resetProgress(); follow(runId, followHandler); };
+// Shown only after a run's error event: earlier stages load from disk, nothing is redone (#9).
+$("resume").onclick = async () => {
+  if (!runId) return;
+  try {
+    const { run_id } = await api(`/research/runs/${encodeURIComponent(runId)}/resume`, {});
+    $("runError").hidden = true; $("resume").hidden = true;
+    resetProgress(); follow(run_id, followHandler);
+  } catch (e) { notify(e.message, "bad"); }
+};
 
 function hideAfter(...ids) { ids.forEach((id) => { $(id).hidden = true; delete $(id).dataset.collapsed; }); }
 

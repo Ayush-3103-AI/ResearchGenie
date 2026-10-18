@@ -45,26 +45,21 @@ def _load_run_from_disk(run_id: str) -> RunState | None:
     end marker, so status and SSE replay behave as they did live. A log
     with neither a result nor an error line means the process stopped
     mid-run, reported as failed. Not cached: the log stays the source."""
-    output_root = pipeline.DEFAULT_OUTPUT_ROOT
-    if not output_root.is_dir():
+    run_directory = pipeline.find_run_directory(run_id)
+    log_path = run_directory / "events.jsonl" if run_directory else None
+    if log_path is None or not log_path.is_file():
         return None
-    for run_directory in output_root.iterdir():
-        log_path = run_directory / "events.jsonl"
-        # Folder names are <slug>_<run_id> and slugs never contain "_".
-        if run_directory.name.partition("_")[2] != run_id or not log_path.is_file():
-            continue
-        state = RunState(run_id=run_id, status="failed", error="Run stopped before finishing.")
-        for line in log_path.read_text(encoding="utf-8").splitlines():
-            event = json.loads(line)
-            if event["type"] == "result":
-                event["result"] = PipelineResult.model_validate(event["result"])
-                state.status, state.result, state.error = "completed", event["result"], None
-            elif event["type"] == "error":
-                state.status, state.error = "failed", event["message"]
-            state.events.append(event)
-        state.events.append({"type": "end"})
-        return state
-    return None
+    state = RunState(run_id=run_id, status="failed", error="Run stopped before finishing.")
+    for line in log_path.read_text(encoding="utf-8").splitlines():
+        event = json.loads(line)
+        if event["type"] == "result":
+            event["result"] = PipelineResult.model_validate(event["result"])
+            state.status, state.result, state.error = "completed", event["result"], None
+        elif event["type"] == "error":
+            state.status, state.error = "failed", event["message"]
+        state.events.append(event)
+    state.events.append({"type": "end"})
+    return state
 
 
 def _publish(state: RunState, event: dict[str, Any]) -> None:

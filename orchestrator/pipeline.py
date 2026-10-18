@@ -17,16 +17,16 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from shared.contracts.discovery_contract import DiscoveryRequest  # noqa: E402
+from shared.contracts.discovery_contract import DiscoveryRequest, DiscoveryResult  # noqa: E402
 from shared.contracts.pipeline_contract import (  # noqa: E402
     Clarification, PipelineResult, ResearchRequest, StageTimings,
 )
-from shared.contracts.qa_contract import QualityAssuranceRequest  # noqa: E402
+from shared.contracts.qa_contract import QualityAssuranceRequest, QualityAssuranceResult  # noqa: E402
 from shared.contracts.trend_contract import (  # noqa: E402
     TrendAdvisorRequest, TrendAdvisorResult,
 )
-from shared.contracts.verification_contract import VerificationRequest  # noqa: E402
-from shared.contracts.writing_contract import WritingRequest  # noqa: E402
+from shared.contracts.verification_contract import VerificationRequest, VerificationResult  # noqa: E402
+from shared.contracts.writing_contract import WritingRequest, WritingResult  # noqa: E402
 from shared.utilities import evidence_table, latex_export, library  # noqa: E402
 from shared.utilities.scholarly_gateway import redact  # noqa: E402
 from shared.utilities.run_paths import slugify  # noqa: E402
@@ -81,6 +81,102 @@ _STAGE_EMOJI = {
 class PipelineError(RuntimeError):
     """Raised when a stage fails to produce output; the orchestrator stops
     rather than passing partial/fabricated data to the next stage."""
+
+
+# Each stage, the folder its result.json is saved in, and the contract that
+# reads it back on resume (#9), in pipeline order.
+STAGES = (
+    ("discovery", "01_discovery", DiscoveryResult),
+    ("writing", "02_writing", WritingResult),
+    ("verification", "03_verification", VerificationResult),
+    ("quality_assurance", "04_quality_assurance", QualityAssuranceResult),
+)
+STAGE_NAMES = tuple(name for name, _, _ in STAGES)
+
+
+def find_run_directory(run_id: str, output_root: Path | None = None) -> Path | None:
+    """The run folder <slug>_<run_id> under output_root, if there is one.
+    Slugs never contain "_", so the id is everything after the first one."""
+    output_root = output_root or DEFAULT_OUTPUT_ROOT
+    if not output_root.is_dir():
+        return None
+    return next((d for d in output_root.iterdir()
+                 if d.is_dir() and d.name.partition("_")[2] == run_id), None)
+
+
+def _load_saved(path: Path, contract, what: str):
+    try:
+        return contract.model_validate_json(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise PipelineError(f"Cannot resume: the saved {what} result is missing ({path}).") from None
+    except (OSError, ValueError) as error:  # pydantic's ValidationError is a ValueError
+        reason = (str(error).splitlines() or [type(error).__name__])[0]
+        raise PipelineError(
+            f"Cannot resume: the saved {what} result is corrupt ({path}): {reason}") from None
+
+
+def plan_resume(run_directory: Path, from_stage: str | None = None) -> dict[str, Any]:
+    """Everything a resume needs, loaded and checked up front so a bad run
+    folder fails before anything is moved or re-run. from_stage defaults to
+    the first stage without a saved result."""
+    run_directory = Path(run_directory)
+    request = _load_saved(run_directory / "00_request.json", ResearchRequest, "request")
+    if from_stage is None:
+        from_stage = next((name for name, folder, _ in STAGES
+                           if not (run_directory / folder / "result.json").is_file()), None)
+        if from_stage is None:
+            raise PipelineError("Every stage of this run already has a saved result; "
+                                "name the stage to re-run (e.g. quality_assurance).")
+    if from_stage not in STAGE_NAMES:
+        raise PipelineError(f"Unknown stage {from_stage!r}; choose one of {', '.join(STAGE_NAMES)}.")
+    loaded = {name: _load_saved(run_directory / folder / "result.json", contract, name)
+              for name, folder, contract in STAGES[:STAGE_NAMES.index(from_stage)]}
+    advisor = run_directory / "00_trend_advisor" / "result.json"
+    return {
+        "request": request, "from_stage": from_stage, "loaded": loaded,
+        "run_id": run_directory.name.partition("_")[2], "output_root": run_directory.parent,
+        "trend_advisor": _load_saved(advisor, TrendAdvisorResult, "trend advisor")
+        if advisor.is_file() else None,
+    }
+
+
+async def resume_pipeline(run_directory: Path | str, from_stage: str | None = None,
+                          ) -> AsyncIterator[dict[str, Any]]:
+    """Resumes a run folder from `from_stage` (default: the first stage
+    without a saved result). Earlier stages are loaded through their
+    contracts, not re-run; the events append to the same events.jsonl."""
+    plan = plan_resume(Path(run_directory), from_stage)
+    async for event in run_pipeline(
+        plan["request"], output_root=plan["output_root"], run_id=plan["run_id"],
+        trend_advisor=plan["trend_advisor"], resume=(plan["from_stage"], plan["loaded"]),
+    ):
+        yield event
+
+
+def _final_versions(run_directory: Path) -> list[str]:
+    numbered = [p.name for p in run_directory.glob("final_v*") if p.name[7:].isdigit()]
+    return sorted(numbered, key=lambda name: int(name[7:]))
+
+
+def _keep_final_as_version(run_directory: Path) -> str | None:
+    """Moves an existing final/ to final_vN (the next free N) so a resume
+    never overwrites output; returns the new name, or None."""
+    final = run_directory / "final"
+    if not final.is_dir():
+        return None
+    versions = _final_versions(run_directory)
+    name = f"final_v{int(versions[-1][7:]) + 1 if versions else 1}"
+    final.rename(run_directory / name)
+    return name
+
+
+def _loaded_event(run_id: str, stage: str, service: str) -> dict[str, Any]:
+    return _progress_event(
+        run_id=run_id, stage=stage, service=service, status="done",
+        title=f"{stage.replace('_', ' ').title()} loaded",
+        message=f"{stage.replace('_', ' ').capitalize()} result loaded from disk (not re-run).",
+        details={"raw_type": "stage_loaded"},
+    )
 
 
 def _progress_event(
@@ -189,6 +285,7 @@ async def _run_stages(
     request: ResearchRequest, output_root: Path | None = None, run_id: str | None = None,
     trend_advisor: TrendAdvisorResult | None = None,
     advisor_directory: Path | str | None = None,
+    resume: tuple[str, dict[str, Any]] | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Yields standardized progress events, then a final
     {"type": "result", "result": PipelineResult} event. Raises
@@ -202,7 +299,11 @@ async def _run_stages(
     advisor_directory is the folder Stage 0 already wrote under this same
     run_id (the advisor names it after the domain, since only the caller
     knows the chosen topic); it is renamed to this run's directory so one
-    run leaves one folder (D-034)."""
+    run leaves one folder (D-034).
+
+    resume is (from_stage, {stage: saved result}) from resume_pipeline (#9):
+    the loaded stages are not re-run, and an existing final/ is kept as
+    final_vN before anything new is written."""
     output_root = output_root or DEFAULT_OUTPUT_ROOT
     run_id = run_id or uuid4().hex
     run_directory = output_root / f"{slugify(request.research_question)}_{run_id}"
@@ -214,8 +315,20 @@ async def _run_stages(
                 and advisor_dir != run_directory and not run_directory.exists()):
             advisor_dir.rename(run_directory)
     run_directory.mkdir(parents=True, exist_ok=True)
+    loaded: dict[str, Any] = resume[1] if resume else {}
+    if resume:
+        kept = _keep_final_as_version(run_directory)
+        yield _progress_event(
+            run_id=run_id, stage=resume[0], service="orchestrator", status="running",
+            title="Run resumed",
+            message=f"Resuming from {resume[0].replace('_', ' ')}; "
+                    f"{len(loaded)} earlier stage(s) loaded from disk"
+                    + (f", previous final output kept as {kept}." if kept else "."),
+            details={"raw_type": "resume", "from_stage": resume[0],
+                     "loaded_stages": list(loaded), "kept_final_as": kept},
+        )
     _write_json(run_directory / "00_request.json", request.model_dump(mode="json"))
-    if request.clarification is not None:
+    if request.clarification is not None and not resume:
         c = request.clarification
         yield _progress_event(
             run_id=run_id, stage="discovery", service="research_discovery", status="running",
@@ -243,7 +356,9 @@ async def _run_stages(
 
     # ---- Research library: past runs on a similar question ----
     try:
-        related = library.search_runs(request.research_question, limit=3, exclude_run_id=run_id)
+        # Already shown when the run first started.
+        related = [] if resume else library.search_runs(
+            request.research_question, limit=3, exclude_run_id=run_id)
     except Exception as error:  # the library is a convenience; never fail a run over it
         related = []
         yield _library_warning(run_id, "discovery", error)
@@ -257,79 +372,94 @@ async def _run_stages(
 
     # ---- Stage 1: Research Discovery ----
     t0 = time.monotonic()
-    discovery_request = DiscoveryRequest(
-        research_question=request.research_question, domain=request.domain,
-        year_range=request.year_range, preferred_databases=request.preferred_databases,
-        keywords=request.keywords, excluded_topics=request.excluded_topics,
-        corpus_size=request.corpus_size,
-    )
-    discovery_result = None
-    async for event in discovery_service.run_discovery(discovery_request):
-        if event["type"] == "result":
-            discovery_result = event["result"]
-        else:
-            yield _adapt_inner_event(run_id, "discovery", "research_discovery", event)
-    if discovery_result is None:
-        raise PipelineError("Research Discovery Service produced no result.")
+    if "discovery" in loaded:
+        discovery_result = loaded["discovery"]
+        yield _loaded_event(run_id, "discovery", "research_discovery")
+    else:
+        discovery_request = DiscoveryRequest(
+            research_question=request.research_question, domain=request.domain,
+            year_range=request.year_range, preferred_databases=request.preferred_databases,
+            keywords=request.keywords, excluded_topics=request.excluded_topics,
+            corpus_size=request.corpus_size,
+        )
+        discovery_result = None
+        async for event in discovery_service.run_discovery(discovery_request):
+            if event["type"] == "result":
+                discovery_result = event["result"]
+            else:
+                yield _adapt_inner_event(run_id, "discovery", "research_discovery", event)
+        if discovery_result is None:
+            raise PipelineError("Research Discovery Service produced no result.")
+        _write_json(run_directory / "01_discovery" / "result.json", discovery_result.model_dump(mode="json"))
     t1 = time.monotonic()
-    _write_json(run_directory / "01_discovery" / "result.json", discovery_result.model_dump(mode="json"))
-    yield _progress_event(
-        run_id=run_id, stage="discovery", service="research_discovery", status="done",
-        title="Research discovery complete",
-        message=f"Selected {len(discovery_result.selected_papers)} paper(s), "
-                f"found {len(discovery_result.research_gaps)} research gap(s).",
-        details={"seconds": round(t1 - t0, 1)},
-    )
+    if "discovery" not in loaded:
+        yield _progress_event(
+            run_id=run_id, stage="discovery", service="research_discovery", status="done",
+            title="Research discovery complete",
+            message=f"Selected {len(discovery_result.selected_papers)} paper(s), "
+                    f"found {len(discovery_result.research_gaps)} research gap(s).",
+            details={"seconds": round(t1 - t0, 1)},
+        )
 
     # ---- Stage 2: Research Writing ----
-    writing_request = WritingRequest(
-        discovery=discovery_result, target_format=request.target_format,
-        format_other_name=request.format_other_name, output_language=request.language,
-        target_words=request.max_draft_length,
-    )
-    writing_result = None
-    async for event in writing_service.run_writing(
-        writing_request, output_root=run_directory / "02_writing",
-    ):
-        if event["type"] == "result":
-            writing_result = event["result"]
-        else:
-            yield _adapt_inner_event(run_id, "writing", "research_writing", event)
-    if writing_result is None:
-        raise PipelineError("Research Writing Service produced no result.")
+    if "writing" in loaded:
+        writing_result = loaded["writing"]
+        yield _loaded_event(run_id, "writing", "research_writing")
+    else:
+        writing_request = WritingRequest(
+            discovery=discovery_result, target_format=request.target_format,
+            format_other_name=request.format_other_name, output_language=request.language,
+            target_words=request.max_draft_length,
+        )
+        writing_result = None
+        async for event in writing_service.run_writing(
+            writing_request, output_root=run_directory / "02_writing",
+        ):
+            if event["type"] == "result":
+                writing_result = event["result"]
+            else:
+                yield _adapt_inner_event(run_id, "writing", "research_writing", event)
+        if writing_result is None:
+            raise PipelineError("Research Writing Service produced no result.")
+        _write_json(run_directory / "02_writing" / "result.json", writing_result.model_dump(mode="json"))
     t2 = time.monotonic()
-    _write_json(run_directory / "02_writing" / "result.json", writing_result.model_dump(mode="json"))
-    yield _progress_event(
-        run_id=run_id, stage="writing", service="research_writing", status="done",
-        title="Draft generation complete",
-        message=f"{writing_result.draft_metadata.sections_written} section(s) written, "
-                f"{len(writing_result.reference_candidates)} reference(s) cited.",
-        details={"seconds": round(t2 - t1, 1)},
-    )
+    if "writing" not in loaded:
+        yield _progress_event(
+            run_id=run_id, stage="writing", service="research_writing", status="done",
+            title="Draft generation complete",
+            message=f"{writing_result.draft_metadata.sections_written} section(s) written, "
+                    f"{len(writing_result.reference_candidates)} reference(s) cited.",
+            details={"seconds": round(t2 - t1, 1)},
+        )
 
     # ---- Stage 3: Citation Verification ----
-    verification_result = None
-    async for event in verification_service.run_verification(
-        VerificationRequest(writing=writing_result),
-    ):
-        if event["type"] == "result":
-            verification_result = event["result"]
-        else:
-            yield _adapt_inner_event(run_id, "verification", "citation_verification", event)
-    if verification_result is None:
-        raise PipelineError("Citation Verification Service produced no result.")
+    if "verification" in loaded:
+        verification_result = loaded["verification"]
+        yield _loaded_event(run_id, "verification", "citation_verification")
+    else:
+        verification_result = None
+        async for event in verification_service.run_verification(
+            VerificationRequest(writing=writing_result),
+        ):
+            if event["type"] == "result":
+                verification_result = event["result"]
+            else:
+                yield _adapt_inner_event(run_id, "verification", "citation_verification", event)
+        if verification_result is None:
+            raise PipelineError("Citation Verification Service produced no result.")
+        _write_json(run_directory / "03_verification" / "result.json", verification_result.model_dump(mode="json"))
     t3 = time.monotonic()
-    _write_json(run_directory / "03_verification" / "result.json", verification_result.model_dump(mode="json"))
-    yield _progress_event(
-        run_id=run_id, stage="verification", service="citation_verification", status="done",
-        title="Citation verification complete",
-        message=f"{len(verification_result.verified_references)} verified, "
-                f"{len(verification_result.invalid_references)} invalid, "
-                f"{len(verification_result.unverifiable_references)} unverifiable.",
-        details={"seconds": round(t3 - t2, 1)},
-    )
+    if "verification" not in loaded:
+        yield _progress_event(
+            run_id=run_id, stage="verification", service="citation_verification", status="done",
+            title="Citation verification complete",
+            message=f"{len(verification_result.verified_references)} verified, "
+                    f"{len(verification_result.invalid_references)} invalid, "
+                    f"{len(verification_result.unverifiable_references)} unverifiable.",
+            details={"seconds": round(t3 - t2, 1)},
+        )
 
-    # ---- Stage 4: Quality Assurance ----
+    # ---- Stage 4: Quality Assurance (always the last stage, so never loaded) ----
     qa_result = None
     async for event in qa_service.run_quality_assurance(
         QualityAssuranceRequest(
@@ -409,6 +539,9 @@ async def _run_stages(
         "broken_sections": draft_meta.broken_sections,
         "duplicate_sections": draft_meta.duplicate_sections,
     }
+    if resume:
+        metadata["resumed_from_stage"] = resume[0]
+        metadata["final_versions"] = _final_versions(run_directory)
     if trend_advisor is not None and trend_advisor.chosen_topic:
         metadata["chosen_topic"] = trend_advisor.chosen_topic
         chosen = trend_advisor.chosen_candidate

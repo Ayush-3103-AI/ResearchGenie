@@ -35,7 +35,10 @@ from fastapi.responses import FileResponse, StreamingResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from orchestrator import run_registry  # noqa: E402
-from orchestrator.pipeline import PipelineError, run_pipeline, run_trend_advisor_stage  # noqa: E402
+from orchestrator.pipeline import (  # noqa: E402
+    PipelineError, find_run_directory, plan_resume, resume_pipeline, run_pipeline,
+    run_trend_advisor_stage,
+)
 from orchestrator.pipeline import discovery_service  # noqa: E402 — for the clarify step
 from researchgenie import advisor_cli  # noqa: E402
 from researchgenie import config as rg_config  # noqa: E402
@@ -90,6 +93,30 @@ async def start_research_run(request: ResearchRequest) -> dict[str, str]:
     /research/runs/{run_id}/events for a live SSE progress stream."""
     run_id = uuid4().hex
     await run_registry.start_run(request, run_id, run_pipeline)
+    return {"run_id": run_id}
+
+
+class ResumeRequest(BaseModel):
+    from_stage: str | None = None  # default: the first stage without a saved result
+
+
+@app.post("/research/runs/{run_id}/resume", status_code=202)
+async def resume_research_run(run_id: str, body: ResumeRequest) -> dict[str, str]:
+    """Resumes a failed run in the background under its own run_id (#9):
+    earlier stages are loaded from disk, an existing final/ is kept as
+    final_vN, and the events stream from /research/runs/{run_id}/events."""
+    state = run_registry.get_run(run_id)
+    if state is not None and state.status == "running":
+        raise HTTPException(status_code=409, detail="This run is still running.")
+    directory = find_run_directory(run_id)
+    if directory is None:
+        raise HTTPException(status_code=404, detail=f"Unknown run_id: {run_id}")
+    try:
+        plan_resume(directory, body.from_stage)  # fail now, not in the background
+    except PipelineError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    await run_registry.start_run(
+        None, run_id, lambda _request, run_id: resume_pipeline(directory, body.from_stage))
     return {"run_id": run_id}
 
 
