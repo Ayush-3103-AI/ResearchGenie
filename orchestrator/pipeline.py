@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT))
 
 from shared.contracts.discovery_contract import DiscoveryRequest  # noqa: E402
 from shared.contracts.pipeline_contract import (  # noqa: E402
-    PipelineResult, ResearchRequest, StageTimings,
+    Clarification, PipelineResult, ResearchRequest, StageTimings,
 )
 from shared.contracts.qa_contract import QualityAssuranceRequest  # noqa: E402
 from shared.contracts.trend_contract import (  # noqa: E402
@@ -178,6 +178,17 @@ async def _run_stages(
     run leaves one folder (D-034)."""
     output_root = output_root or DEFAULT_OUTPUT_ROOT
     run_id = run_id or uuid4().hex
+    # Clarify: an interactive surface already asked ("ask" + clarification);
+    # "auto" asks the model here and takes its suggestion. Before the folder
+    # is named, so it carries the question actually researched.
+    if request.clarify == "auto" and request.clarification is None:
+        clarified = await discovery_service.clarify_question(request.research_question)
+        accept = clarified is not None and not clarified["specific"]
+        request = request.model_copy(update={
+            "research_question": clarified["suggested_question"] if accept else request.research_question,
+            "clarification": Clarification(original_question=request.research_question,
+                                           decision="accept" if accept else "keep", **(clarified or {})),
+        })
     run_directory = output_root / f"{slugify(request.research_question)}_{run_id}"
     if advisor_directory:
         advisor_dir = Path(advisor_directory)
@@ -188,6 +199,17 @@ async def _run_stages(
             advisor_dir.rename(run_directory)
     run_directory.mkdir(parents=True, exist_ok=True)
     _write_json(run_directory / "00_request.json", request.model_dump(mode="json"))
+    if request.clarification is not None:
+        c = request.clarification
+        yield _progress_event(
+            run_id=run_id, stage="discovery", service="research_discovery", status="running",
+            title="Research question checked",
+            message=f"Clarify: {c.decision} — researching \"{request.research_question}\".",
+            details={"raw_type": "clarify", "original": c.original_question,
+                     "chosen": request.research_question, "decision": c.decision,
+                     "specific": c.specific, "missing": c.missing,
+                     "suggested": c.suggested_question},
+        )
 
     # ---- Stage 0 (optional): Trend & Gap Advisor ----
     if trend_advisor is not None:

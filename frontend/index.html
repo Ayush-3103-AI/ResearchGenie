@@ -477,6 +477,7 @@ textarea.lg { font-size: 16px; min-height: 110px; }
           <p class="mode-copy">Runs Discovery, Writing, Verification and Quality in sequence on your question.</p>
           <div class="field"><label for="question">Research question</label>
             <textarea id="question" class="lg" placeholder="e.g. What are the effects of intermittent fasting on cognitive performance?"></textarea></div>
+          <div id="clarify" class="banner info" hidden><span class="grow" id="clarifyText"></span><button class="btn sm ghost" type="button" id="clarifyAccept">Use suggestion</button><button class="btn sm ghost" type="button" id="clarifyEdit">Edit it</button><button class="btn sm quiet" type="button" id="clarifyKeep">Keep mine</button></div>
           <div class="options" id="directOptions"></div>
           <div class="form-foot">
             <button class="btn primary" type="submit" data-needs-model>Run the pipeline</button>
@@ -964,14 +965,42 @@ $("lockForm").onsubmit = async (e) => {
 };
 
 // ---- direct question ----
+// Clarify: one model check before the run. A vague question shows the
+// suggestion inline; whatever is in the box on the next submit is the choice.
+let clarifyPending = null;
+const clarification = (original, check, decision) => ({ original_question: original, decision,
+  specific: check.available ? check.specific : null, missing: check.missing || [], suggested_question: check.suggested_question || "" });
+const resubmit = (question) => { $("question").value = question; $("directForm").requestSubmit($("directForm").querySelector('[type="submit"]')); };
+$("clarifyAccept").onclick = () => resubmit(clarifyPending.check.suggested_question);
+$("clarifyKeep").onclick = () => resubmit(clarifyPending.original);
+$("clarifyEdit").onclick = () => { $("question").value = clarifyPending.check.suggested_question; $("question").focus(); };
+
 $("directForm").onsubmit = async (e) => {
   e.preventDefault();
   const question = $("question").value.trim();
   if (!question) { $("question").focus(); return notify("Type a research question first.", "warn"); }
-  const btn = e.submitter; busy(btn, true, "Starting…");
+  const btn = e.submitter;
+  let record;
+  if (clarifyPending) {
+    const { original, check } = clarifyPending;
+    record = clarification(original, check, question === original ? "keep" : question === check.suggested_question ? "accept" : "edit");
+  } else {
+    busy(btn, true, "Checking question…");
+    const check = await api("/research/clarify", { research_question: question }).catch(() => ({ available: false }));
+    busy(btn, false);
+    if (check.available && !check.specific) {
+      clarifyPending = { original: question, check };
+      $("clarifyText").innerHTML = `This question may be too broad to search well.${check.missing.length ? ` Missing: ${esc(check.missing.join(", "))}.` : ""}<br>Suggested: <b>${esc(check.suggested_question)}</b>`;
+      $("clarify").hidden = false;
+      return;
+    }
+    record = clarification(question, check, "keep");
+  }
+  busy(btn, true, "Starting…");
   hideAfter("shortlist", "lockin", "results"); $("notice").hidden = true;
   try {
-    const { run_id } = await api("/research/runs", { research_question: question, ...readOptions("d") });
+    const { run_id } = await api("/research/runs", { research_question: question, ...readOptions("d"), clarify: "ask", clarification: record });
+    clarifyPending = null; $("clarify").hidden = true;
     resetProgress();
     collapse("start", `Question: <b>${esc(question)}</b>`);
     follow(run_id, showResults);
@@ -982,7 +1011,7 @@ $("startOver").onclick = () => {
   if (source) source.close();
   stopTimer();
   const wasLive = ORDER.some((k) => st[k].state === "running");
-  runId = null; shortlist = null;
+  runId = null; shortlist = null; clarifyPending = null; $("clarify").hidden = true;
   history.replaceState(null, "", location.pathname);
   hideAfter("feed", "shortlist", "lockin", "results");
   $("chatLog").innerHTML = ""; $("runError").hidden = true; $("elapsed").hidden = true;

@@ -94,6 +94,68 @@ async def generate_queries(question: str, model_name: str | None = None) -> dict
 
 
 # ---------------------------------------------------------------------------
+# Step 0 (optional): ask whether the question is specific enough to search
+# ---------------------------------------------------------------------------
+
+CLARIFY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "specific": {
+            "type": "boolean",
+            "description": "True if the question is specific enough to search the literature "
+                           "and write a focused paper on as it stands.",
+        },
+        "missing": {
+            "type": "array",
+            "description": "What a sharper question would pin down (e.g. population, method, "
+                           "outcome, setting). Empty when specific.",
+            "items": {"type": "string"},
+        },
+        "suggested_question": {
+            "type": "string",
+            "description": "One sharper version of the question, keeping the researcher's intent.",
+        },
+    },
+    "required": ["specific", "missing", "suggested_question"],
+    "additionalProperties": False,
+}
+
+CLARIFY_SYSTEM = (
+    "You check whether a research question is specific enough to drive a literature search "
+    "and a focused paper. A question naming no concrete subject, method, population or outcome "
+    "is not specific. If it is not specific, say what is missing and suggest one sharper "
+    "question that keeps the researcher's intent. Never change the topic."
+)
+
+
+async def clarify_question(question: str, model_name: str | None = None) -> dict | None:
+    """{specific, missing, suggested_question} for the question, or None when
+    the model gives no usable answer — the caller then keeps the original
+    question, so this step can never fail a run."""
+    try:
+        comp = await llm.complete_json(
+            system=CLARIFY_SYSTEM,
+            user=f"Research question: {question}",
+            schema=CLARIFY_SCHEMA,
+            model=model_name or economy_model(),
+            max_tokens=800,
+            think=False,
+        )
+        if comp.stop != "end":
+            return None
+        c = json.loads(comp.text)
+        suggested = str(c["suggested_question"]).strip()
+        return {
+            # Nothing to offer without a different suggestion, so treat it as specific.
+            "specific": bool(c["specific"]) or not suggested or suggested == question.strip(),
+            "missing": [str(m) for m in c["missing"]],
+            "suggested_question": suggested,
+        }
+    except Exception:  # noqa: BLE001 — any model/parse failure means "keep the original"
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Step 2: mine author-flagged future-research statements from full texts
 # ---------------------------------------------------------------------------
 
