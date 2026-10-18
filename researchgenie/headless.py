@@ -6,6 +6,7 @@
     researchgenie result <run id or folder> [--json]
     researchgenie resume <run id or folder> [--from STAGE] (--json | --detach)
     researchgenie doctor <run id or folder> [--yes] [--json]
+    researchgenie library search <query> --json
 
 Never prompts. Progress goes to stderr, the answer to stdout (JSON with
 --json). `run --detach` starts the same command in a background process and
@@ -115,6 +116,10 @@ def build_parser() -> argparse.ArgumentParser:
     doctor_cmd.add_argument("--yes", action="store_true",
                             help="apply the proposed fix without asking (required with --json)")
 
+    library_cmd = commands.add_parser("library", help="search the research library")
+    library_cmd.add_argument("action", choices=["search"])
+    library_cmd.add_argument("query", nargs="+")
+
     for sub in commands.choices.values():
         sub.add_argument("--json", action="store_true", help="machine-readable output")
         sub.add_argument("--no-cache", action="store_true",
@@ -123,10 +128,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def is_headless(args: list[str]) -> bool:
-    """run/status/result always; resume only with --json or --detach (a bare
-    `resume` stays the interactive one)."""
+    """run/status/result/doctor always; resume only with --json or --detach,
+    library only with --json (bare, they stay the interactive commands)."""
     if args[:1] == ["resume"]:
         return "--json" in args or "--detach" in args
+    if args[:1] == ["library"]:
+        return "--json" in args
     return bool(args) and args[0] in COMMANDS
 
 
@@ -332,6 +339,12 @@ def main(argv: list[str]) -> int:
         report = result_of(directory)
         _print(report, args.json)
         return _exit_code(report)
+
+    if args.command == "library":
+        from shared.utilities import library
+        query = " ".join(args.query)
+        _print({"runs": library.search_runs(query), "papers": library.search_papers(query)}, args.json)
+        return EXIT_OK
 
     directory = _resolve(args.run)
     if directory is None:

@@ -398,8 +398,11 @@ class Gateway:
                 health, reason = "healthy", ""
             if host == "api.semanticscholar.org":
                 reason = reason or "keyless shared pool, best-effort"
-            status.append({"name": policy.name, "host": host, "access": access,
-                           "health": health, "reason": reason})
+            entry = {"name": policy.name, "host": host, "access": access,
+                     "health": health, "reason": reason}
+            if policy.credits_marker:  # the last known budget, from an earlier run if need be (#6)
+                entry["budget_remaining"] = (response_cache.balance(host) or {}).get("x-ratelimit-remaining")
+            status.append(entry)
         return status
 
     def _slot(self, host: str, policy: HostPolicy) -> asyncio.Semaphore:

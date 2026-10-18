@@ -75,6 +75,12 @@ def test_each_rule_row(tmp_path, fixture, system, metadata, pdf, rule, fix):
         assert any(line.startswith(("Live check", "metadata.json")) for line in diagnosis["evidence"])
 
 
+def test_a_known_cause_is_not_blamed_on_a_model_that_is_merely_off(tmp_path):
+    folder = _run_folder(tmp_path, "providers_exhausted")
+    down = {**HEALTHY, "ollama_running": False, "model_installed": None}
+    assert doctor.diagnose(folder, down)["rule"] == "providers_exhausted"
+
+
 def test_a_healthy_completed_run_and_an_unknown_failure_are_reported_honestly(tmp_path):
     completed = _run_folder(tmp_path, "completed", {"draft_status": "complete"}, pdf=True)
     assert doctor.diagnose(completed, HEALTHY)["rule"] is None
@@ -199,7 +205,10 @@ def test_the_api_diagnoses_then_applies_only_when_asked(ollama_died_in_verificat
     assert shown["rule"] == "ollama_unreachable" and shown["applied"] is False
     assert ollama["started"] == 0 and _report(folder)["applied"] is False
 
-    applied = client.post(f"/research/runs/{run_id}/doctor", json={"apply": True}).json()
+    stale = client.post(f"/research/runs/{run_id}/doctor", json={"apply": True, "fix": "pull_model"})
+    assert stale.status_code == 409 and ollama["started"] == 0  # not the fix that was shown
+    applied = client.post(f"/research/runs/{run_id}/doctor",
+                          json={"apply": True, "fix": shown["fix"]["id"]}).json()
     assert applied["applied"] is True and applied["resumed"] is True and ollama["started"] == 1
     deadline = time.monotonic() + 5
     while client.get(f"/research/runs/{run_id}").json()["status"] != "completed":

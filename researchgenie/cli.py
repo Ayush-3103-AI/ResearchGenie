@@ -338,12 +338,12 @@ def main() -> None:
     console = Console(legacy_windows=False)
     args = sys.argv[1:]
 
+    if "--no-cache" in args:  # any command, anywhere on the line
+        args.remove("--no-cache")
+        os.environ["RESEARCHGENIE_NO_CACHE"] = "1"
     from researchgenie import headless  # imports this module's helpers
     if headless.is_headless(args):
         sys.exit(headless.main(args))
-    if "--no-cache" in args:
-        args.remove("--no-cache")
-        os.environ["RESEARCHGENIE_NO_CACHE"] = "1"
     if args[:2] == ["cache", "clear"]:
         count = response_cache.clear()
         console.print(f"[{OK}]Removed {count} cached response(s) from "

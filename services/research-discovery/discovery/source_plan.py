@@ -6,7 +6,8 @@ unknown tool, or without a usable query string, rejects the whole plan.
 Whenever the plan is rejected, the model makes no call, or the provider
 can't call tools (Gemini), a deterministic fallback is used: the request's
 preferred databases if it names any, else the default sources filtered by
-domain (no PubMed for engineering and computing fields). The fallback is
+domain (no PubMed for mechanical, civil, electrical/electronics and
+cloud/devops; computer science keeps it for health informatics). The fallback is
 never worse than searching everything, which is what Discovery did before.
 """
 
@@ -26,7 +27,7 @@ _STRENGTHS = {
     "arxiv": "preprints in physics, mathematics, computer science, engineering and quantitative fields",
 }
 # Domains whose papers PubMed doesn't index; spending its quota there finds nothing.
-_NOT_PUBMED = re.compile(r"\b(mechanical|civil|electrical|electronics?|ece|eee|cloud|devops)\b")
+_NOT_PUBMED = re.compile(r"\b(mechanical|civil|electrical|electronics|ece|eee|cloud|devops)\b")
 MAX_QUERY_CHARS = 300
 
 PLAN_SYSTEM = (
@@ -60,12 +61,16 @@ def _valid(calls: list[dict], source_keys: list[str]) -> dict[str, str] | None:
     return plan or None
 
 
+def _named(source_keys: list[str], preferred: list[str] | None) -> list[str]:
+    """The sources the request names (by key or label), among those available."""
+    return [k for k in source_keys
+            if any(p.strip().lower() in (k, SOURCES[k][0].lower()) for p in preferred or [])]
+
+
 def fallback(source_keys: list[str], domain: str | None,
              preferred: list[str] | None = None) -> list[str]:
     """The deterministic plan: preferred databases, else the domain filter."""
-    named = [k for k in source_keys
-             if any(p.strip().lower() in (k, SOURCES[k][0].lower()) for p in preferred or [])]
-    if named:
+    if named := _named(source_keys, preferred):
         return named
     domain_words = (domain or "").lower().replace("_", " ")
     return [k for k in source_keys if not (k == "pubmed" and _NOT_PUBMED.search(domain_words))]
@@ -75,7 +80,7 @@ async def plan_sources(question: str, queries: dict, source_keys: list[str], mod
                        domain: str | None = None, preferred: list[str] | None = None) -> dict:
     """{"mode": "model" | "fallback", "reason": str, "queries": {key: query dict}}.
     Never raises: any model failure is a fallback with its reason."""
-    if preferred:  # databases the user named win over the model's choice
+    if _named(source_keys, preferred):  # databases the user named win over the model's choice
         reason = "the request names its databases"
     else:
         try:

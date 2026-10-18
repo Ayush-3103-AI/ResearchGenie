@@ -57,6 +57,7 @@ researchgenie status <run id> --json            # stage, state, last event
 researchgenie result <run id> --json            # final files, scores, verification counts, draft status
 researchgenie resume <run id> --json            # headless resume (--from STAGE to choose)
 researchgenie doctor <run id> --yes --json      # diagnose, apply the fix, resume
+researchgenie library search "<query>" --json   # past runs and papers in your library
 ```
 
 `run` takes every research-request field as a flag (`researchgenie run --help` lists them). `--clarify` is `skip` (default) or `auto`; approval is always automatic headless. Progress goes to stderr, the answer to stdout.

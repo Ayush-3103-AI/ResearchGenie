@@ -168,16 +168,30 @@ def test_bad_arguments_exit_2(capsys, argv):
     assert headless.main(argv) == headless.EXIT_USAGE
 
 
+def test_library_search_speaks_json(capsys, outputs):
+    code, report = _cli(capsys, "run", "-q", "Does sleep aid memory?", "--json")
+    code, found = _cli(capsys, "library", "search", "sleep", "memory", "--json")
+    assert code == 0 and [r["run_id"] for r in found["runs"]] == [report["run_id"]]
+
+
 def test_which_command_lines_are_headless():
     assert headless.is_headless(["run", "-q", "Q"]) and headless.is_headless(["status", "x"])
     assert headless.is_headless(["resume", "x", "--json"])
     assert not headless.is_headless(["resume", "x"]) and not headless.is_headless([])
     assert not headless.is_headless(["library", "search", "x"])
+    assert headless.is_headless(["library", "search", "x", "--json"])
 
 
 def test_no_cache_and_cache_clear(capsys, monkeypatch):
     _cli(capsys, "status", "nope", "--no-cache")
     assert response_cache.reads_enabled() is False
+    monkeypatch.delenv("RESEARCHGENIE_NO_CACHE")
+
+    from researchgenie import cli
+    monkeypatch.setattr(sys, "argv", ["researchgenie", "--no-cache", "status", "nope", "--json"])
+    with pytest.raises(SystemExit) as stop:  # headless, not the interactive app
+        cli.main()
+    assert stop.value.code == headless.EXIT_NOT_FOUND and not response_cache.reads_enabled()
     monkeypatch.delenv("RESEARCHGENIE_NO_CACHE")
 
     response_cache.put("GET x?", 200, "text/plain", b"x", None, 0.0)

@@ -39,7 +39,7 @@ The Doctor diagnoses without asking, because diagnosing only reads the run. It *
 
 - The interactive CLI asks "Apply this fix?" and the default answer is no.
 - `researchgenie doctor --json` applies the fix only with `--yes`.
-- The API applies a fix only when the request has `apply: true`. The web page sends that only when the user clicks **Apply fix** after the diagnosis and the proposed fix are on screen.
+- The API applies a fix only when the request has `apply: true` and names the fix the user was shown. If the diagnosis has changed since then (the system status moved), the API refuses with 409 and the user must diagnose again. The web page sends this only when the user clicks **Apply fix** after the diagnosis and the proposed fix are on screen.
 - A fix that needs the user (entering a key, installing LaTeX, rephrasing the question) is reported as a step and is never run from headless mode or the web.
 
 Every diagnosis writes `doctor_report.json` in the run folder, with the cause, the evidence lines, the proposed fix, whether it was applied, and the outcome. The outcome is updated when the resumed run ends.
@@ -81,5 +81,6 @@ Where: `dev_agent/agent.py`. Evidence: `tests/dev_agent/test_dev_agent.py::test_
 ## Known gaps
 
 - The **model-chosen sources** spike (#16) has not been run on a local model yet (`scripts/spike_tool_calling.py`). Until it has, treat the domain fallback as the tested path.
+- The Doctor's rule-row fixtures (`tests/fixtures/doctor/`) are written in the exact `events.jsonl` format with the pipeline's real error messages. They were not captured from live failures, because this machine has no model to fail.
 - The **Doctor's live demo** (stop Ollama mid-run, diagnose, restart, resume to completion) and the **Dev Agent's APA run** (#26, `docs/tickets/26-apa-7.md`) need a machine with Ollama or a Gemini key, and are not recorded yet.
 - The agent skill (#21) does not exist yet. Its exec-safety rules above apply when it is built.

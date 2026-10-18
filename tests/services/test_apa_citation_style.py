@@ -3,6 +3,7 @@ narrative citations, the reference list, and how they render in Markdown
 and LaTeX. Two rules the formatter does not follow yet (n.d.-a/n.d.-b and
 en-dash page ranges) are the Dev Agent's ticket, docs/tickets/26-apa-7.md."""
 
+import re
 import sys
 from pathlib import Path
 
@@ -53,9 +54,11 @@ def test_in_text_citations_are_author_date():
 
 
 def test_reference_entries_follow_apa_7():
-    assert APA["P001"].reference_entry == (
-        "Walker, M. P., & Stickgold, R. (2005). Sleep-dependent memory consolidation. "
-        "*Nature, 437*(7063), 1272-1278. https://doi.org/10.1038/nature04286")
+    # The page range's dash is left open: an en dash is the Dev Agent's ticket.
+    assert re.fullmatch(
+        r"Walker, M\. P\., & Stickgold, R\. \(2005\)\. Sleep-dependent memory consolidation\. "
+        r"\*Nature, 437\*\(7063\), 1272[-–]1278\. https://doi\.org/10\.1038/nature04286",
+        APA["P001"].reference_entry)
     assert APA["P002"].reference_entry == (
         "Lee, A., Kim, B., & Park, C. (2020a). Memory and sleep in adolescents. *Sleep, 43*. "
         "https://doi.org/10.1093/sleep/zsz001")

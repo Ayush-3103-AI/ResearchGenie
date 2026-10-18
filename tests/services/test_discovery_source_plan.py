@@ -119,8 +119,9 @@ def test_other_engineering_domains_skip_pubmed_too(monkeypatch, domain):
     assert "eutils.ncbi.nlm.nih.gov" not in hosts
 
 
-def test_a_biomedical_or_unset_domain_keeps_pubmed(monkeypatch):
-    _, hosts, _, _ = _discover(monkeypatch, None, domain="Neuroscience")
+@pytest.mark.parametrize("domain", ["Neuroscience", "Electronic health records", None])
+def test_a_biomedical_or_unset_domain_keeps_pubmed(monkeypatch, domain):
+    _, hosts, _, _ = _discover(monkeypatch, None, domain=domain)
     assert "eutils.ncbi.nlm.nih.gov" in hosts
 
 
@@ -148,6 +149,11 @@ def test_preferred_databases_win_without_asking_the_model(monkeypatch):
     plan, hosts, _, asked = _discover(monkeypatch, [_call("search_arxiv", "x")], preferred=["OpenAlex"])
     assert asked == [] and plan["mode"] == "fallback"
     assert hosts == {"api.openalex.org"}
+
+
+def test_preferred_databases_that_are_not_available_are_ignored(monkeypatch):
+    plan, hosts, _, asked = _discover(monkeypatch, [_call("search_openalex", "x")], preferred=["Scopus"])
+    assert len(asked) == 1 and plan["mode"] == "model" and hosts == {"api.openalex.org"}
 
 
 def test_gemini_goes_through_the_fallback(monkeypatch, real_complete_tools):

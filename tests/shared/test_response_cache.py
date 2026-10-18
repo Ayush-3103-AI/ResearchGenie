@@ -148,6 +148,7 @@ def test_exhaustion_and_balance_survive_a_process_restart():
     assert restarted.provider_status()[0]["health"] == "degraded"
     balance = response_cache.balance("api.openalex.org")
     assert balance["x-ratelimit-remaining"] == "40" and balance["seen_at"] == fake.now
+    assert restarted.provider_status()[0]["budget_remaining"] == "40"  # known before a run starts
     # The cached search still answers, budget or not.
     assert _get(restarted, transport, SEARCH, params={"search": "a"}).status_code == 200
 

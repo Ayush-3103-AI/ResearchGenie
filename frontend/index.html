@@ -928,13 +928,13 @@ $("diagnose").onclick = async (e) => {
     $("doctorText").innerHTML = `<b>${esc(d.cause)}</b>` +
       (d.evidence.length ? `<span class="why">${d.evidence.map(esc).join("<br>")}</span>` : "") +
       (fix ? `<span class="why">Fix: ${esc(fix.label)}${runnable ? "" : " This is a step for you; nothing is run here."}</span>` : "");
-    $("applyFix").hidden = !runnable; $("doctor").hidden = false;
+    $("applyFix").hidden = !runnable; $("applyFix").dataset.fix = fix ? fix.id : ""; $("doctor").hidden = false;
   } catch (err) { notify(err.message, "bad"); } finally { busy(e.target, false); }
 };
 $("applyFix").onclick = async (e) => {
   busy(e.target, true, "Applying…");
   try {
-    const out = await api(`/research/runs/${encodeURIComponent(runId)}/doctor`, { apply: true });
+    const out = await api(`/research/runs/${encodeURIComponent(runId)}/doctor`, { apply: true, fix: $("applyFix").dataset.fix });
     if (out.resumed) { $("runError").hidden = true; $("doctor").hidden = true; resetProgress(); follow(out.run_id, followHandler); }
     else { $("doctorText").textContent = out.outcome; $("applyFix").hidden = true; }
   } catch (err) { notify(err.message, "bad"); } finally { busy(e.target, false); }

@@ -136,6 +136,7 @@ async def resume_research_run(run_id: str, body: ResumeRequest) -> dict[str, str
 
 class DoctorRequest(BaseModel):
     apply: bool = False  # false: diagnose only; true: the user confirmed the proposed fix
+    fix: str | None = None  # with apply: the id of the fix the user saw and confirmed
 
 
 @app.post("/research/runs/{run_id}/doctor")
@@ -146,16 +147,18 @@ async def doctor_research_run(run_id: str, body: DoctorRequest) -> dict[str, obj
     resumes, restarts the run in the background under its own run_id.
     Either way the diagnosis is saved as the run's doctor_report.json."""
     state = run_registry.get_run(run_id)
-    if state is not None and state.status in ("running", "awaiting_approval")             and run_id in run_registry._runs:
+    if state is not None and state.status in ("running", "awaiting_approval") and             run_id in run_registry._runs:  # a live run (a log-only one reads as failed)
         raise HTTPException(status_code=409, detail="This run is still running.")
     directory = find_run_directory(run_id)
     if directory is None:
         raise HTTPException(status_code=404, detail=f"Unknown run_id: {run_id}")
     diagnosis = doctor.diagnose(directory, await doctor.system_status())
-    fix = diagnosis["fix"]
     if not body.apply:
         doctor.write_report(directory, diagnosis, applied=False, outcome="Diagnosed; no fix applied yet.")
         return {**diagnosis, "applied": False, "resumed": False}
+    if body.fix != (diagnosis["fix"] or {}).get("id"):  # confirmed one fix, never apply another
+        raise HTTPException(status_code=409, detail="The diagnosis changed since it was shown; "
+                                                    "diagnose again before applying a fix.")
     problem = await doctor.apply_fix(diagnosis)  # no key prompt here: a key fix is reported
     if problem is None:  # every automatic fix resumes; check the folder can be resumed now
         try:
