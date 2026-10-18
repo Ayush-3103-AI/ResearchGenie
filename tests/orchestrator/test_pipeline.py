@@ -163,6 +163,43 @@ def test_run_pipeline_raises_if_a_stage_yields_no_result(tmp_path, monkeypatch):
         asyncio.run(run())
 
 
+def test_run_pipeline_appends_every_event_to_events_jsonl_including_failure(tmp_path, monkeypatch):
+    async def _failing_writing(request, output_root=None):
+        yield {"type": "status", "stage": "write", "state": "running", "message": "writing"}
+
+    monkeypatch.setattr(orchestrator_pipeline.writing_service, "run_writing", _failing_writing)
+    request = ResearchRequest(research_question="What is X?", corpus_size=6)
+
+    async def run():
+        events = []
+        with pytest.raises(orchestrator_pipeline.PipelineError) as error:
+            async for event in orchestrator_pipeline.run_pipeline(request, output_root=tmp_path, run_id="abc123"):
+                events.append(event)
+        return events, error.value
+
+    events, error = asyncio.run(run())
+
+    log_path = tmp_path / "what-is-x_abc123" / "events.jsonl"
+    logged = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+    assert len(events) > 2
+    assert logged[:-1] == events  # same events, same order, same shape
+    assert logged[-1] == {"type": "error", "message": str(error)}
+
+
+def test_run_pipeline_logs_result_event_to_events_jsonl(tmp_path):
+    request = ResearchRequest(research_question="What is X?", corpus_size=6)
+
+    async def run():
+        return [event async for event in orchestrator_pipeline.run_pipeline(request, output_root=tmp_path)]
+
+    events = asyncio.run(run())
+
+    run_directory = Path(events[-1]["result"].run_directory)
+    logged = [json.loads(line) for line in (run_directory / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert logged[:-1] == events[:-1]
+    assert logged[-1] == {"type": "result", "result": events[-1]["result"].model_dump(mode="json")}
+
+
 # --- Optional Stage 0: Trend & Gap Advisor (DECISIONS.md D-031) -------------
 
 def _fake_trend_result():
