@@ -104,7 +104,6 @@ On Windows PowerShell, run `$env:GEMINI_API_KEY="your-key"` first. You can also 
 | `GEMINI_MODEL` | cloud | `gemini-2.5-flash` | Gemini model |
 | `LOCAL_AI_MODEL` | local | `qwen3.5:9b` | Ollama model to pull and use |
 | `CONTACT_EMAIL` | both | — | Optional, sent to OpenAlex/PubMed for their polite pool |
-| `S2_API_KEY` | both | — | Optional Semantic Scholar API key |
 | `RESEARCHGENIE_PORT` | both | `8000` | Host port for the web UI |
 
 Run folders land in `./outputs` on your machine. On Linux the container writes as uid 1000, so that folder must be writable by uid 1000. The first PDF compile downloads tectonic's TeX bundle (a few minutes, needs internet); it is cached in the `researchgenie-home` volume after that. Stop with `docker compose --profile local down` (or `cloud`); add `-v` to also delete the model and cache volumes.

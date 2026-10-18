@@ -125,6 +125,9 @@ def test_auto_mode_takes_the_suggestion_and_records_it(tmp_path, monkeypatch):
     assert event["details"]["chosen"] == SHARPER
     assert event["details"]["decision"] == "accept"
     assert result.request.research_question == SHARPER
+    # The event log (#8) lands in the folder named after the chosen question.
+    assert (Path(result.run_directory) / "events.jsonl").exists()
+    assert [p.name for p in tmp_path.iterdir() if p.is_dir()] == [Path(result.run_directory).name]
 
 
 def test_auto_mode_model_failure_keeps_the_original_and_the_run_completes(tmp_path, monkeypatch):

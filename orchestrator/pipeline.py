@@ -151,6 +151,17 @@ async def run_pipeline(
     time it yields its first event."""
     output_root = output_root or DEFAULT_OUTPUT_ROOT
     run_id = run_id or uuid4().hex
+    # Clarify: an interactive surface already asked ("ask" + clarification);
+    # "auto" asks the model here and takes its suggestion. Before the folder
+    # and the log path are named, so it carries the question actually researched.
+    if request.clarify == "auto" and request.clarification is None:
+        clarified = await discovery_service.clarify_question(request.research_question)
+        accept = clarified is not None and not clarified["specific"]
+        request = request.model_copy(update={
+            "research_question": clarified["suggested_question"] if accept else request.research_question,
+            "clarification": Clarification(original_question=request.research_question,
+                                           decision="accept" if accept else "keep", **(clarified or {})),
+        })
     log_path = output_root / f"{slugify(request.research_question)}_{run_id}" / "events.jsonl"
 
     def append(event: dict[str, Any]) -> None:
@@ -188,17 +199,6 @@ async def _run_stages(
     run leaves one folder (D-034)."""
     output_root = output_root or DEFAULT_OUTPUT_ROOT
     run_id = run_id or uuid4().hex
-    # Clarify: an interactive surface already asked ("ask" + clarification);
-    # "auto" asks the model here and takes its suggestion. Before the folder
-    # is named, so it carries the question actually researched.
-    if request.clarify == "auto" and request.clarification is None:
-        clarified = await discovery_service.clarify_question(request.research_question)
-        accept = clarified is not None and not clarified["specific"]
-        request = request.model_copy(update={
-            "research_question": clarified["suggested_question"] if accept else request.research_question,
-            "clarification": Clarification(original_question=request.research_question,
-                                           decision="accept" if accept else "keep", **(clarified or {})),
-        })
     run_directory = output_root / f"{slugify(request.research_question)}_{run_id}"
     if advisor_directory:
         advisor_dir = Path(advisor_directory)
