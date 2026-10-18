@@ -86,8 +86,7 @@ POLICIES: dict[str, HostPolicy] = {
         name="arXiv", rate=1 / 3, burst=1, concurrency=1, identity="none",
         backoff=3.0,
         remedy="arXiv is throttling this machine; try again in a few minutes."),
-    # Single-record pace without the polite pool. Not used by Discovery yet —
-    # Citation Verification adopts the gateway in #4.
+    # Single-record pace without the polite pool; Citation Verification's DOI lookups (#4).
     "api.crossref.org": HostPolicy(
         name="Crossref", rate=5, burst=5, concurrency=1, identity="mailto",
         remedy="Set CONTACT_EMAIL to use Crossref's polite pool, or try again later."),

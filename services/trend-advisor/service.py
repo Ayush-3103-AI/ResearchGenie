@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT))
 from shared.contracts.trend_contract import (  # noqa: E402
     TrendAdvisorRequest, TrendAdvisorResult,
 )
-from shared.utilities import llm_provider  # noqa: E402
+from shared.utilities import llm_provider, scholarly_gateway  # noqa: E402
 from shared.utilities.run_paths import slugify  # noqa: E402
 
 sys.path.insert(0, str(ROOT / "services" / "research-writing"))
@@ -69,11 +69,18 @@ async def run_trend_advisor(
 
     yield {"type": "status", "stage": "velocity", "state": "running",
            "message": f"Analysing publication velocity for {request.domain_label}..."}
+    # Its own gateway run (#4): the advisor's OpenAlex and arXiv calls share
+    # the process-wide pacing with any pipeline run beside it, trip their own
+    # breaker, and report rate_limited / provider_exhausted here as they happen.
+    gateway_run = scholarly_gateway.Run()
+    velocity = gateway_run.task(find_rising_topics(
+        request.domain, limit=request.shortlist_size,
+        domain_other_name=request.domain_other_name,
+    ))
+    async for event in gateway_run.relay(velocity):
+        yield event
     try:
-        candidates = await find_rising_topics(
-            request.domain, limit=request.shortlist_size,
-            domain_other_name=request.domain_other_name,
-        )
+        candidates = velocity.result()
     except VelocityUnavailable as error:
         yield {"type": "status", "stage": "velocity", "state": "failed",
                "message": str(error)}
