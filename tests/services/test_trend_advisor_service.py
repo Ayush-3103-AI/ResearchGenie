@@ -259,3 +259,27 @@ def test_no_arxiv_warning_for_a_domain_that_never_queries_arxiv(tmp_path):
 
     assert all(c.arxiv_recent_count is None for c in result.shortlist)
     assert not any("arXiv" in w for w in result.warnings)
+
+
+def test_a_throttled_openalex_call_is_retried_and_shown_as_a_progress_event(tmp_path, monkeypatch):
+    """The advisor's OpenAlex calls run inside its own gateway run (#4): a 429
+    is retried rather than failing the stage, and the wait is reported."""
+    real = velocity.find_rising_topics
+    inner = _openalex_transport()
+    throttled = []
+
+    def handler(request):
+        if "group_by" in request.url.params and not throttled:
+            throttled.append(request)
+            return httpx.Response(429, headers={"Retry-After": "1"})
+        return inner.handle_request(request)
+
+    async def patched(domain, **kwargs):
+        return await real(domain, transport=httpx.MockTransport(handler), current_year=2026, **kwargs)
+
+    monkeypatch.setattr(service, "find_rising_topics", patched)
+    events, result = asyncio.run(_collect(TrendAdvisorRequest(domain="MECHANICAL"),
+                                          output_root=tmp_path, model=_FakeModel()))
+
+    assert throttled and result.shortlist
+    assert any(e["type"] == "rate_limited" for e in events)

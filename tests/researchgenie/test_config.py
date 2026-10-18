@@ -64,3 +64,39 @@ def test_is_setup_complete_reflects_saved_state(tmp_path, monkeypatch):
     assert mod.is_setup_complete() is False
     mod.save(mod.Config(setup_complete=True))
     assert mod.is_setup_complete() is True
+
+
+SCHOLARLY_ENVS = ("OPENALEX_API_KEY", "CONTACT_EMAIL", "NCBI_API_KEY")
+
+
+def test_scholarly_identity_round_trips_and_is_masked(tmp_path, monkeypatch):
+    mod = _isolated(tmp_path, monkeypatch)
+    mod.save(mod.Config(openalex_api_key="oa-0123456789", contact_email="me@uni.edu",
+                        ncbi_api_key="ncbi-0123456789"))
+    loaded = mod.load()
+    assert (loaded.openalex_api_key, loaded.contact_email, loaded.ncbi_api_key) == (
+        "oa-0123456789", "me@uni.edu", "ncbi-0123456789")
+    summary = str(loaded.masked_summary())
+    for secret in ("oa-0123456789", "me@uni.edu", "ncbi-0123456789"):
+        assert secret not in summary
+
+
+def test_a_config_saved_before_the_scholarly_fields_still_loads(tmp_path, monkeypatch):
+    mod = _isolated(tmp_path, monkeypatch)
+    mod.CONFIG_DIR.mkdir(parents=True)
+    mod.CONFIG_PATH.write_text('{"setup_complete": true, "provider": "ollama"}', encoding="utf-8")
+    config = mod.load()
+    assert config.setup_complete and config.openalex_api_key is None
+
+
+def test_environment_variables_override_the_saved_scholarly_values(tmp_path, monkeypatch):
+    import os
+    mod = _isolated(tmp_path, monkeypatch)
+    for name in SCHOLARLY_ENVS:
+        monkeypatch.setenv(name, "")  # recorded, so teardown removes what apply_scholarly sets
+        monkeypatch.delenv(name)
+    monkeypatch.setenv("CONTACT_EMAIL", "from-env@uni.edu")
+    mod.apply_to_environment(mod.Config(contact_email="saved@uni.edu", ncbi_api_key="saved-ncbi"))
+    assert os.environ["CONTACT_EMAIL"] == "from-env@uni.edu"
+    assert os.environ["NCBI_API_KEY"] == "saved-ncbi"
+    assert "OPENALEX_API_KEY" not in os.environ

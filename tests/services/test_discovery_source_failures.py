@@ -52,7 +52,7 @@ def _handler(request: httpx.Request) -> httpx.Response:
 
 
 def _run_until_corpus(monkeypatch) -> tuple[list[dict], list[str]]:
-    async def fake_queries(question, model):
+    async def fake_queries(question, model, feedback=None):
         return dict(QUERIES)
 
     monkeypatch.setattr(pipeline, "generate_queries", fake_queries)

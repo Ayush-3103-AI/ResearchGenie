@@ -23,6 +23,10 @@ PublicationType = Literal["conference", "journal", "other"]
 # model itself and takes the suggestion. skip: no clarify step — the default,
 # so headless callers and scripts keep their question unchanged.
 ClarifyMode = Literal["ask", "skip", "auto"]
+# ask: the run pauses after Discovery so the user can drop papers (the web
+# page sets it; the interactive CLI always asks). auto: approved as found —
+# the default, so headless runs, scripts and tests never stall (#17).
+ApprovalMode = Literal["ask", "auto"]
 
 
 class Clarification(BaseModel):
@@ -54,6 +58,7 @@ class ResearchRequest(BaseModel):
     excluded_topics: list[str] = Field(default_factory=list)
     clarify: ClarifyMode = "skip"
     clarification: Clarification | None = None
+    approval: ApprovalMode = "auto"
 
     @model_validator(mode="after")
     def _require_format_other_name(self) -> "ResearchRequest":

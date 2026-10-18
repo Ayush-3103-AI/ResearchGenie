@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import math
-from typing import AsyncIterator
+from typing import AsyncIterator, Awaitable, Callable
 
 import httpx
 
@@ -16,7 +16,7 @@ from .analysis import (analyze_gaps, economy_model, generate_queries,
                        mine_future_research, model)
 from .models import Paper, PipelineError, normalize_title
 from .relevance import build_topic_profile, screen_papers
-from .sources import SOURCES, openalex
+from .sources import SOURCE_URLS, SOURCES, openalex
 
 FULLTEXT_MAX_ATTEMPTS = 40   # papers we try to fetch full text for
 VERIFY_RESULTS_PER_CANDIDATE = 8
@@ -215,6 +215,82 @@ async def _verify_candidates(candidates: list[dict], corpus: list[Paper],
     return verification_papers, warnings
 
 
+async def _search_round(selected: list, queries: dict, per_source: int,
+                        gateway_run: scholarly_gateway.Run,
+                        transport: httpx.AsyncBaseTransport | None) -> AsyncIterator:
+    """One search of `selected` sources through the gateway. Yields the
+    gateway's events and each source's result/error event, plus a
+    (source key, papers) tuple for every source that answered."""
+    async def search_all() -> list:
+        async with httpx.AsyncClient(timeout=45, follow_redirects=True,
+                                     transport=transport) as http:
+            return await asyncio.gather(
+                *[fn(http, queries, per_source) for _, _, fn in selected],
+                return_exceptions=True,
+            )
+
+    search = gateway_run.task(search_all())
+    async for event in gateway_run.relay(search):
+        yield event
+    for (key, label, _), result in zip(selected, search.result()):
+        if isinstance(result, BaseException):
+            yield {"type": "source_error", "source": label,
+                   "message": f"{label} search failed ({type(result).__name__}) — continuing without it."}
+        else:
+            yield {"type": "source_result", "source": label, "count": len(result)}
+            yield key, result
+
+
+def _replan_feedback(rejected: list[Paper], accepted: int, wanted: int) -> str:
+    """What the second query generation is told about the first search (#15)."""
+    lines = [f"The first search found only {accepted} on-topic paper(s); {wanted} are needed."]
+    if rejected:
+        lines.append("These results were rejected as off-topic, with the reason:")
+        lines += [f"- {p.title} — {p.relevance_reason or 'off-topic'}"
+                  for p in sorted(rejected, key=lambda p: p.relevance_score)[:10]]
+    lines.append("Write different queries that would find papers on the research question itself.")
+    return "\n".join(lines)
+
+
+# approve(papers, reserve_size) -> {"approved_by": str, "drop": [paper ids]} (#17)
+Approver = Callable[[list[dict], int], Awaitable[dict]]
+
+
+def _paper_ref(p: Paper) -> dict:
+    return {"title": p.title, "doi": p.doi, "year": p.year}
+
+
+async def _approve_corpus(corpus: list[Paper], reserve: list[Paper],
+                          approve: Approver | None) -> AsyncIterator:
+    """The approval step: asks `approve` (or approves automatically when
+    there is none), replaces each dropped paper with the next ranked
+    candidate, and renumbers. Yields its events, then the approved corpus."""
+    if approve is None:
+        decision = {"approved_by": "auto", "drop": []}
+    else:
+        yield {"type": "approval_request", "reserve": len(reserve),
+               "message": f"Waiting for approval of the {len(corpus)} selected paper(s) "
+                          "before full text, analysis and writing.",
+               "papers": [p.to_client_dict() for p in corpus]}
+        decision = await approve([p.to_client_dict() for p in corpus], len(reserve))
+    drop = set(decision.get("drop") or [])
+    dropped = [p for p in corpus if p.id in drop]
+    replacements = reserve[:len(dropped)]
+    approved = [p for p in corpus if p.id not in drop] + replacements
+    for i, p in enumerate(approved, start=1):
+        p.id = i
+    short = len(dropped) - len(replacements)
+    message = (f"Corpus approved ({decision['approved_by']})"
+               + (f": dropped {len(dropped)}, replaced {len(replacements)} from the ranked "
+                  "candidates" if dropped else "")
+               + (f" — {short} fewer paper(s), no candidates left" if short else "") + ".")
+    yield {"type": "approval", "approved_by": decision["approved_by"],
+           "approved_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+           "dropped": [_paper_ref(p) for p in dropped],
+           "replacements": [_paper_ref(p) for p in replacements], "message": message}
+    yield approved
+
+
 def _models(quality: str) -> tuple[str, str]:
     """(fast model for queries+mining, premium model for the gap analysis)."""
     premium, economy = model(), economy_model()
@@ -229,8 +305,11 @@ async def run_pipeline(question: str, source_keys: list[str],
                        fulltext_enabled: bool = True,
                        quality: str = "balanced",
                        keywords: list[str] | None = None,
-                       transport: httpx.AsyncBaseTransport | None = None) -> AsyncIterator[dict]:
-    """`transport` is a test seam (httpx.MockTransport); production leaves it None."""
+                       transport: httpx.AsyncBaseTransport | None = None,
+                       approve: Approver | None = None) -> AsyncIterator[dict]:
+    """`transport` is a test seam (httpx.MockTransport); production leaves it None.
+    `approve` pauses the run after screening for the paper approval step
+    (#17); without it the corpus is approved automatically."""
     selected = [(k, *SOURCES[k]) for k in source_keys if k in SOURCES]
     if not selected:
         raise PipelineError("Select at least one literature source.")
@@ -244,38 +323,24 @@ async def run_pipeline(question: str, source_keys: list[str],
                       f"gap analysis: {analysis_model}"}
 
     all_papers: list[Paper] = []
-    if selected:
-        yield {"type": "status", "stage": "queries", "state": "running",
-               "message": "Generating search queries with the local model…"}
-        queries = await generate_queries(question, fast_model)
-        yield {"type": "queries", "queries": queries}
-        yield {"type": "status", "stage": "queries", "state": "done",
-               "message": f"Search queries ready — “{queries['keyword']}”"}
+    yield {"type": "status", "stage": "queries", "state": "running",
+           "message": "Generating search queries with the local model…"}
+    queries = await generate_queries(question, fast_model)
+    yield {"type": "queries", "queries": queries}
+    yield {"type": "status", "stage": "queries", "state": "done",
+           "message": f"Search queries ready — “{queries['keyword']}”"}
 
-        yield {"type": "status", "stage": "search", "state": "running",
-               "message": f"Searching {len(selected)} database(s)…"}
+    yield {"type": "status", "stage": "search", "state": "running",
+           "message": f"Searching {len(selected)} database(s)…"}
+    answered: list[str] = []
+    async for item in _search_round(selected, queries, per_source, gateway_run, transport):
+        if isinstance(item, tuple):
+            answered.append(item[0])
+            all_papers.extend(item[1])
+        else:
+            yield item
 
-        async def search_all() -> list:
-            async with httpx.AsyncClient(timeout=45, follow_redirects=True,
-                                         transport=transport) as http:
-                return await asyncio.gather(
-                    *[fn(http, queries, per_source) for _, _, fn in selected],
-                    return_exceptions=True,
-                )
-
-        search = gateway_run.task(search_all())
-        async for event in gateway_run.relay(search):
-            yield event
-        results = search.result()
-        for (key, label, _), result in zip(selected, results):
-            if isinstance(result, BaseException):
-                yield {"type": "source_error", "source": label,
-                       "message": f"{label} search failed ({type(result).__name__}) — continuing without it."}
-            else:
-                all_papers.extend(result)
-                yield {"type": "source_result", "source": label, "count": len(result)}
-
-    if not all_papers:
+    if not answered:
         raise PipelineError("No papers found in any source. Try rephrasing the question "
                             "or enabling more sources.")
 
@@ -289,6 +354,47 @@ async def run_pipeline(question: str, source_keys: list[str],
     # "strong" by those other signals — the exact failure this closes.
     profile = build_topic_profile(question, queries.get("keyword", ""), keywords)
     accepted, rejected = screen_papers(unique, profile)
+
+    # Re-plan (#15): a thin corpus gets one second search with new queries,
+    # told what was rejected and why — at most 2 rounds in total, and only on
+    # sources that answered and the gateway has not marked exhausted.
+    if len(accepted) < corpus_size:
+        before = len(accepted)
+        thin = f"Only {before} of the {corpus_size} papers needed were on topic"
+        usable = [s for s in selected if s[0] in answered
+                  and gateway_run.available(SOURCE_URLS[s[0]])]
+        if not usable:
+            yield {"type": "log", "message": f"{thin}, but every source that answered is out of "
+                                             "budget or rate-limited, so no second search was run."}
+        else:
+            yield {"type": "status", "stage": "search", "state": "running",
+                   "message": f"{thin}; trying a second search with new queries…"}
+            try:
+                retry_queries = await generate_queries(
+                    question, fast_model, feedback=_replan_feedback(rejected, before, corpus_size))
+            except PipelineError as error:
+                yield {"type": "source_error", "source": "Re-plan",
+                       "message": f"{error} Continuing with the first search's papers."}
+            else:
+                found: list[Paper] = []
+                async for item in _search_round(usable, retry_queries, per_source,
+                                                gateway_run, transport):
+                    if isinstance(item, tuple):
+                        found.extend(item[1])
+                    else:
+                        yield item
+                all_papers.extend(found)
+                unique = dedupe(unique + found)
+                accepted, rejected = screen_papers(unique, profile)
+                yield {"type": "replan", "round": 2, "reason": f"{thin} after the first search.",
+                       "queries": retry_queries, "accepted_before": before,
+                       "accepted_after": len(accepted),
+                       "message": f"{thin}, so the search ran a second time with new queries: "
+                                  f"{before} → {len(accepted)} on-topic paper(s)."}
+
+    if not unique:
+        raise PipelineError("No papers found in any source. Try rephrasing the question "
+                            "or enabling more sources.")
     if rejected:
         examples = sorted(rejected, key=lambda p: p.relevance_score)[:5]
         yield {"type": "relevance_filter", "accepted": len(accepted), "rejected": len(rejected),
@@ -305,9 +411,16 @@ async def run_pipeline(question: str, source_keys: list[str],
             "Try rephrasing the question or providing more specific keywords."
         )
 
-    corpus = rank(accepted, per_source)[:corpus_size]
+    ranked = rank(accepted, per_source)
+    corpus = ranked[:corpus_size]
     for i, p in enumerate(corpus, start=1):
         p.id = i
+    # Before full text and analysis, so no later step ever reads a dropped paper.
+    async for item in _approve_corpus(corpus, ranked[corpus_size:], approve):
+        if isinstance(item, list):
+            corpus = item
+        else:
+            yield item
     yield {"type": "status", "stage": "search", "state": "done",
            "message": f"Found {len(all_papers)} papers → {len(unique)} unique → "
                       f"{len(accepted)} passed relevance screening → analyzing top {len(corpus)}"}

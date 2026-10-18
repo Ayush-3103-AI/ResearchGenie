@@ -26,6 +26,7 @@ dependencies = [
 [project.scripts]
 researchgenie = "researchgenie.cli:main"
 researchgenie-advise = "researchgenie.advisor_cli:main"
+researchgenie-dev = "dev_agent.agent:main"
 
 [tool.setuptools]
 # The pipeline's own service modules (services/research-discovery, etc.)
@@ -38,7 +39,7 @@ researchgenie-advise = "researchgenie.advisor_cli:main"
 # instead every source directory the CLI needs at runtime ships as package
 # data alongside the real `researchgenie` package, preserving the exact
 # file layout the existing file-path loading already expects.
-packages = ["researchgenie", "orchestrator", "shared", "services"]
+packages = ["researchgenie", "orchestrator", "shared", "services", "dev_agent"]
 
 [tool.setuptools.package-data]
 researchgenie = ["*"]

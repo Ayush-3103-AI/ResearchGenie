@@ -214,8 +214,9 @@ def build_known_limitations(
         limitations.append(discovery.limitations)
     if verification.unverifiable_references:
         limitations.append(
-            f"{len(verification.unverifiable_references)} reference(s) had no DOI and could "
-            "not be automatically verified against Crossref/OpenAlex."
+            f"{len(verification.unverifiable_references)} reference(s) had no DOI, or got no "
+            "answer from the lookup providers, and could not be automatically verified "
+            "against Crossref/OpenAlex."
         )
     all_checks = (
         verification.verified_references

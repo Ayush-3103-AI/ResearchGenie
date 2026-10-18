@@ -39,9 +39,11 @@ def _paper_metadata(p: dict, discussion_excerpt: str | None = None) -> PaperMeta
 
 
 async def run_discovery(request: DiscoveryRequest,
-                        sources: list[str] | None = None) -> AsyncIterator[dict]:
+                        sources: list[str] | None = None,
+                        approve=None) -> AsyncIterator[dict]:
     """Yields progress events (same shape as the underlying pipeline's), then a
-    final {"type": "result", "result": DiscoveryResult} event.
+    final {"type": "result", "result": DiscoveryResult} event. `approve` is
+    the paper approval step's callback (discovery.pipeline.Approver, #17).
 
     Raises PipelineError (discovery.models.PipelineError) on unrecoverable failure —
     the orchestrator should catch it, log it to the run's audit trail, and stop
@@ -58,7 +60,7 @@ async def run_discovery(request: DiscoveryRequest,
     async for event in run_pipeline(request.research_question, source_keys,
                                     PER_SOURCE_RESULTS, request.corpus_size,
                                     fulltext_enabled=True, quality="balanced",
-                                    keywords=request.keywords):
+                                    keywords=request.keywords, approve=approve):
         if event["type"] == "queries":
             queries = event["queries"]
         elif event["type"] == "corpus":

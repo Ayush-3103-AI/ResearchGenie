@@ -17,6 +17,7 @@ from typing import Any, Awaitable, Callable
 
 from orchestrator import pipeline
 from shared.contracts.pipeline_contract import PipelineResult, ResearchRequest
+from shared.utilities.scholarly_gateway import redact
 
 RunPipelineFn = Callable[..., Any]
 
@@ -24,11 +25,12 @@ RunPipelineFn = Callable[..., Any]
 @dataclass
 class RunState:
     run_id: str
-    status: str = "running"  # running | completed | failed
+    status: str = "running"  # running | awaiting_approval | completed | failed
     events: list[dict[str, Any]] = field(default_factory=list)
     result: PipelineResult | None = None
     error: str | None = None
     subscribers: list[asyncio.Queue] = field(default_factory=list)
+    approval: asyncio.Future | None = None  # set while the run waits at the approval step
 
 
 _runs: dict[str, RunState] = {}
@@ -44,26 +46,45 @@ def _load_run_from_disk(run_id: str) -> RunState | None:
     end marker, so status and SSE replay behave as they did live. A log
     with neither a result nor an error line means the process stopped
     mid-run, reported as failed. Not cached: the log stays the source."""
-    output_root = pipeline.DEFAULT_OUTPUT_ROOT
-    if not output_root.is_dir():
+    run_directory = pipeline.find_run_directory(run_id)
+    log_path = run_directory / "events.jsonl" if run_directory else None
+    if log_path is None or not log_path.is_file():
         return None
-    for run_directory in output_root.iterdir():
-        log_path = run_directory / "events.jsonl"
-        # Folder names are <slug>_<run_id> and slugs never contain "_".
-        if run_directory.name.partition("_")[2] != run_id or not log_path.is_file():
-            continue
-        state = RunState(run_id=run_id, status="failed", error="Run stopped before finishing.")
-        for line in log_path.read_text(encoding="utf-8").splitlines():
-            event = json.loads(line)
-            if event["type"] == "result":
-                event["result"] = PipelineResult.model_validate(event["result"])
-                state.status, state.result, state.error = "completed", event["result"], None
-            elif event["type"] == "error":
-                state.status, state.error = "failed", event["message"]
-            state.events.append(event)
-        state.events.append({"type": "end"})
-        return state
-    return None
+    state = RunState(run_id=run_id, status="failed", error="Run stopped before finishing.")
+    for line in log_path.read_text(encoding="utf-8").splitlines():
+        event = json.loads(line)
+        if event["type"] == "result":
+            event["result"] = PipelineResult.model_validate(event["result"])
+            state.status, state.result, state.error = "completed", event["result"], None
+        elif event["type"] == "error":
+            state.status, state.error = "failed", event["message"]
+        state.events.append(event)
+    state.events.append({"type": "end"})
+    return state
+
+
+def approver(run_id: str):
+    """The paper approval step's callback for a web run (#17): the run shows
+    as awaiting_approval until approve(run_id, drop) is called."""
+    async def wait_for_approval(papers: list[dict], reserve: int) -> dict:
+        state = _runs[run_id]
+        state.approval = asyncio.get_running_loop().create_future()
+        state.status = "awaiting_approval"
+        try:
+            drop = await state.approval
+        finally:
+            state.approval, state.status = None, "running"
+        return {"approved_by": "web", "drop": drop}
+    return wait_for_approval
+
+
+def approve(run_id: str, drop: list[int]) -> bool:
+    """Continues a run waiting at the approval step; False if none is waiting."""
+    state = _runs.get(run_id)
+    if state is None or state.approval is None or state.approval.done():
+        return False
+    state.approval.set_result(drop)
+    return True
 
 
 def _publish(state: RunState, event: dict[str, Any]) -> None:
@@ -113,7 +134,7 @@ async def _drive_run(
     except Exception as error:  # PipelineError, or any unexpected stage failure
         state.status = "failed"
         # Some exceptions (e.g. httpx timeouts) stringify to "" — never report a blank failure.
-        state.error = str(error) or type(error).__name__
+        state.error = redact(str(error)) or type(error).__name__
         _publish(state, {"type": "error", "message": state.error})
     finally:
         _publish(state, {"type": "end"})

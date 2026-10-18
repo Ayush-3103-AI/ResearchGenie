@@ -264,3 +264,61 @@ def test_evidence_table_is_downloadable_and_has_a_tab(client, monkeypatch, tmp_p
     assert response.text.startswith("# Evidence table")
     page = client.get("/").text
     assert '["evidence_table.md", "Evidence table", ".md"]' in page and '"Evidence": ""' in page
+
+
+def test_system_endpoint_reports_each_scholarly_provider_without_secrets(client, monkeypatch):
+    monkeypatch.setattr(orchestrator_api.llm_provider, "health_check", _async_true)
+    monkeypatch.setenv("OPENALEX_API_KEY", "oa-secret-0123456789")
+    monkeypatch.setenv("CONTACT_EMAIL", "student@example.edu")
+    monkeypatch.delenv("NCBI_API_KEY", raising=False)
+    body = client.get("/system").json()
+    providers = {p["name"]: p for p in body["providers"]}
+    assert providers["OpenAlex"]["access"] == "keyed"
+    assert providers["PubMed (NCBI)"]["access"] == "identified"
+    assert providers["Semantic Scholar"]["access"] == "anonymous"
+    assert all(p["health"] in ("healthy", "degraded") for p in body["providers"])
+    assert "oa-secret-0123456789" not in str(body) and "student@example.edu" not in str(body)
+
+
+async def _async_true():
+    return True
+
+
+def test_a_web_run_waits_for_approval_and_approve_continues_it(monkeypatch):
+    # One event loop for the whole test (the run waits on a future across requests);
+    # the lifespan then runs, so keep it off the real ~/.researchgenie config.
+    monkeypatch.setattr(orchestrator_api.rg_config, "load", lambda: orchestrator_api.rg_config.Config())
+    with TestClient(orchestrator_api.app) as client:
+        _approval_round_trip(client, monkeypatch)
+
+
+def _approval_round_trip(client, monkeypatch):
+    papers = [{"id": 1, "title": "Kept"}, {"id": 2, "title": "Dropped"}]
+    decisions = []
+
+    async def pipeline_with_approval(request, output_root=None, run_id=None, approve=None):
+        yield {"type": "progress", "run_id": run_id, "message": "review the papers",
+               "details": {"raw_type": "approval_request", "papers": papers}}
+        decisions.append(await approve(papers, 0))
+        yield {"type": "result", "result": _fake_pipeline_result()}
+
+    monkeypatch.setattr(orchestrator_api, "run_pipeline", pipeline_with_approval)
+    run_id = client.post("/research/runs", json={"research_question": "Q?", "approval": "ask"}).json()["run_id"]
+    _wait_for_status(client, run_id, {"awaiting_approval"})
+    assert client.post(f"/research/runs/{run_id}/approve", json={"drop": [2]}).status_code == 200
+    _wait_for_status(client, run_id, {"completed"})
+    assert decisions == [{"approved_by": "web", "drop": [2]}]
+    assert client.post(f"/research/runs/{run_id}/approve", json={"drop": []}).status_code == 409
+
+
+def test_an_api_run_approves_automatically_by_default(client, monkeypatch):
+    seen = {}
+
+    async def pipeline(request, output_root=None, run_id=None, approve=None):
+        seen["approve"] = approve
+        yield {"type": "result", "result": _fake_pipeline_result()}
+
+    monkeypatch.setattr(orchestrator_api, "run_pipeline", pipeline)
+    run_id = client.post("/research/runs", json={"research_question": "Q?"}).json()["run_id"]
+    _wait_for_status(client, run_id, {"completed"})
+    assert seen["approve"] is None

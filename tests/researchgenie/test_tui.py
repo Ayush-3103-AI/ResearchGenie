@@ -135,3 +135,18 @@ def test_render_omits_the_stage_zero_panel_for_a_plain_run():
 
     assert "Trend & Gap Advisor" not in output
     assert "Research Discovery" in output
+
+
+def test_provider_status_lists_every_source_with_access_and_health():
+    import io
+    from rich.console import Console
+    from researchgenie.tui import render_provider_status
+    out = io.StringIO()
+    render_provider_status(Console(file=out, width=120), [
+        {"name": "OpenAlex", "host": "api.openalex.org", "access": "keyed", "health": "healthy", "reason": ""},
+        {"name": "Semantic Scholar", "host": "api.semanticscholar.org", "access": "anonymous",
+         "health": "degraded", "reason": "keyless shared pool, best-effort"},
+    ])
+    text = out.getvalue()
+    assert "OpenAlex" in text and "keyed" in text and "healthy" in text
+    assert "Semantic Scholar" in text and "anonymous" in text and "degraded" in text

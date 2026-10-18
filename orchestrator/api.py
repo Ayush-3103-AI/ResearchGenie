@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -34,23 +35,36 @@ from fastapi.responses import FileResponse, StreamingResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from orchestrator import run_registry  # noqa: E402
-from orchestrator.pipeline import PipelineError, run_pipeline, run_trend_advisor_stage  # noqa: E402
+from orchestrator.pipeline import (  # noqa: E402
+    PipelineError, find_run_directory, plan_resume, resume_pipeline, run_pipeline,
+    run_trend_advisor_stage,
+)
 from orchestrator.pipeline import discovery_service  # noqa: E402 — for the clarify step
 from researchgenie import advisor_cli  # noqa: E402
+from researchgenie import config as rg_config  # noqa: E402
 from shared.contracts.pipeline_contract import PipelineResult, ResearchRequest  # noqa: E402
 from shared.contracts.trend_contract import TrendAdvisorRequest, TrendAdvisorResult  # noqa: E402
-from shared.utilities import library, llm_provider  # noqa: E402
+from shared.utilities import library, llm_provider, scholarly_gateway  # noqa: E402
 
 FRONTEND = ROOT / "frontend" / "index.html"
 # Only the files the pipeline itself writes to <run>/final/ are downloadable.
 FINAL_FILES = {"draft.md", "quality_report.md", "validation_report.md",
                "references.md", "evidence_table.md", "paper.tex", "paper.pdf"}
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    # The scholarly keys and email saved by `researchgenie config` (#5);
+    # environment variables already set win.
+    rg_config.apply_scholarly(rg_config.load())
+    yield
+
+
 app = FastAPI(
     title="AI Research Assistant",
     description="Local-first pipeline: research request -> evidence-grounded, "
                 "citation-verified, quality-audited draft.",
     version="0.1.0",
+    lifespan=_lifespan,
 )
 
 
@@ -78,7 +92,48 @@ async def start_research_run(request: ResearchRequest) -> dict[str, str]:
     GET /research/runs/{run_id} for status, or GET
     /research/runs/{run_id}/events for a live SSE progress stream."""
     run_id = uuid4().hex
-    await run_registry.start_run(request, run_id, run_pipeline)
+    # approval "ask": pause after Discovery until POST .../approve (#17).
+    approve = {"approve": run_registry.approver(run_id)} if request.approval == "ask" else {}
+    await run_registry.start_run(
+        request, run_id, lambda req, run_id: run_pipeline(req, run_id=run_id, **approve))
+    return {"run_id": run_id}
+
+
+class Approval(BaseModel):
+    drop: list[int] = []  # ids of the shown papers to replace from the ranked candidates
+
+
+@app.post("/research/runs/{run_id}/approve")
+async def approve_research_run(run_id: str, approval: Approval) -> dict[str, str]:
+    """Continues a run that is awaiting_approval, dropping the given papers."""
+    if not run_registry.approve(run_id, approval.drop):
+        raise HTTPException(status_code=409, detail="This run is not waiting for approval.")
+    return {"run_id": run_id}
+
+
+class ResumeRequest(BaseModel):
+    from_stage: str | None = None  # default: the first stage without a saved result
+
+
+@app.post("/research/runs/{run_id}/resume", status_code=202)
+async def resume_research_run(run_id: str, body: ResumeRequest) -> dict[str, str]:
+    """Resumes a failed run in the background under its own run_id (#9):
+    earlier stages are loaded from disk, an existing final/ is kept as
+    final_vN, and the events stream from /research/runs/{run_id}/events."""
+    state = run_registry.get_run(run_id)
+    if state is not None and state.status == "running":
+        raise HTTPException(status_code=409, detail="This run is still running.")
+    directory = find_run_directory(run_id)
+    if directory is None:
+        raise HTTPException(status_code=404, detail=f"Unknown run_id: {run_id}")
+    try:
+        plan = plan_resume(directory, body.from_stage)  # fail now, not in the background
+    except PipelineError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    approve = run_registry.approver(run_id) if plan["request"].approval == "ask" else None
+    await run_registry.start_run(
+        None, run_id,
+        lambda _request, run_id: resume_pipeline(directory, body.from_stage, approve=approve))
     return {"run_id": run_id}
 
 
@@ -152,6 +207,8 @@ async def system_status() -> dict[str, object]:
         else llm_provider.DEFAULT_MODEL,
         "model_ready": await llm_provider.health_check(),
         "domains": [{"key": key, "label": label} for key, label in advisor_cli.DOMAINS],
+        # keyed / identified / anonymous and healthy / degraded per source (#5)
+        "providers": scholarly_gateway.provider_status(),
     }
 
 
@@ -250,8 +307,9 @@ async def advisor_to_pipeline(run_id: str, handoff: AdvisorHandoff) -> dict[str,
     result, directory = _advisor_result(run_id)
     chosen = advisor_cli.with_chosen_topic(result, _candidate(result, handoff.topic))
     request = ResearchRequest(**handoff.model_dump(exclude={"topic"}))
+    approve = {"approve": run_registry.approver(run_id)} if request.approval == "ask" else {}
     await run_registry.start_run(
         request, run_id,
         lambda req, run_id: run_pipeline(req, run_id=run_id, trend_advisor=chosen,
-                                         advisor_directory=directory))
+                                         advisor_directory=directory, **approve))
     return {"run_id": run_id}

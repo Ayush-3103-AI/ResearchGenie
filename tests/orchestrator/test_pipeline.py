@@ -587,3 +587,29 @@ def test_trend_advisor_stage_alone_keeps_its_own_run_directory(tmp_path, _real_a
     assert run_directory.name.startswith("cs-ai-ml_")
     assert [p.name for p in tmp_path.iterdir() if p.is_dir()] == [run_directory.name]
     assert (run_directory / "00_trend_advisor" / "result.json").exists()
+
+
+def test_no_key_or_email_reaches_the_event_log_or_the_run_folder(tmp_path, monkeypatch):
+    """#5 / D-023: a stage message or error that echoes a keyed URL is masked
+    before it is written anywhere a user (or a shared run folder) sees it."""
+    monkeypatch.setenv("OPENALEX_API_KEY", "oa-secret-0123456789")
+    monkeypatch.setenv("CONTACT_EMAIL", "student@example.edu")
+
+    async def _leaky_discovery(request):
+        yield {"type": "source_error", "message": "GET https://api.openalex.org/works?"
+               "api_key=oa-secret-0123456789&mailto=student@example.edu failed"}
+        raise orchestrator_pipeline.PipelineError("failed: api_key=oa-secret-0123456789")
+
+    monkeypatch.setattr(orchestrator_pipeline.discovery_service, "run_discovery", _leaky_discovery)
+
+    async def run():
+        with pytest.raises(orchestrator_pipeline.PipelineError):
+            async for _ in orchestrator_pipeline.run_pipeline(
+                    ResearchRequest(research_question="What is X?", corpus_size=6),
+                    output_root=tmp_path, run_id="abc123"):
+                pass
+
+    asyncio.run(run())
+    written = "".join(p.read_text(encoding="utf-8") for p in tmp_path.rglob("*") if p.is_file())
+    assert "api.openalex.org" in written
+    assert "oa-secret-0123456789" not in written and "student@example.edu" not in written

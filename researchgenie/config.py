@@ -33,16 +33,24 @@ class Config:
     ollama_model: str = "qwen3.5:9b"
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash"
+    # Scholarly access (#5), each optional. No Semantic Scholar key: the
+    # project will not get an S2 plan, so S2 stays keyless.
+    openalex_api_key: str | None = None
+    contact_email: str | None = None
+    ncbi_api_key: str | None = None
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
 
     def masked_summary(self) -> dict:
-        """Safe-to-print view — the API key, if any, is masked."""
+        """Safe-to-print view — every key, and the email, is masked."""
         data = self.to_dict()
-        if data.get("gemini_api_key"):
-            key = data["gemini_api_key"]
-            data["gemini_api_key"] = f"{key[:4]}...{key[-2:]}" if len(key) > 8 else "****"
+        for name in ("gemini_api_key", "openalex_api_key", "ncbi_api_key"):
+            if data.get(name):
+                key = data[name]
+                data[name] = f"{key[:4]}...{key[-2:]}" if len(key) > 8 else "****"
+        if data.get("contact_email"):
+            data["contact_email"] = "***@" + data["contact_email"].rpartition("@")[2]
         return data
 
 
@@ -84,3 +92,14 @@ def apply_to_environment(config: Config) -> None:
     os.environ["GEMINI_MODEL"] = config.gemini_model
     if config.gemini_api_key:
         os.environ["GEMINI_API_KEY"] = config.gemini_api_key
+    apply_scholarly(config)
+
+
+def apply_scholarly(config: Config) -> None:
+    """The scholarly keys and email, read by shared/utilities/scholarly_gateway.py.
+    A variable already set in the environment wins over the saved value."""
+    for name, value in (("OPENALEX_API_KEY", config.openalex_api_key),
+                        ("CONTACT_EMAIL", config.contact_email),
+                        ("NCBI_API_KEY", config.ncbi_api_key)):
+        if value and not os.environ.get(name):
+            os.environ[name] = value

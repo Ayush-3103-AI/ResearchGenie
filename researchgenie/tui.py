@@ -107,6 +107,34 @@ def render_banner(console: Console) -> None:
     ))
 
 
+def render_provider_status(console: Console, providers: list[dict]) -> None:
+    """One line per literature source: keyed / identified / anonymous, and
+    healthy / degraded (#5). `providers` is scholarly_gateway.provider_status()."""
+    table = Table.grid(padding=(0, 2))
+    for p in providers:
+        health = f"[{OK}]healthy[/{OK}]" if p["health"] == "healthy" else f"[{WARN}]degraded[/{WARN}]"
+        note = f"[{MUTED}]{p['reason']}[/{MUTED}]" if p["reason"] else ""
+        table.add_row(p["name"], p["access"], health, note)
+    console.print(Panel(table, title="Literature sources", border_style=SECONDARY))
+
+
+def render_approval_table(console: Console, papers: list[dict], reserve: int) -> None:
+    """The selected papers, numbered, before Writing starts (#17)."""
+    table = Table(title="Selected papers", title_style=f"bold {ACCENT}", border_style=SECONDARY)
+    table.add_column("#", justify="right", style=MUTED)
+    table.add_column("Title", overflow="fold")
+    table.add_column("Year", justify="right")
+    table.add_column("Venue", overflow="fold", style=MUTED)
+    table.add_column("Relevance", justify="right")
+    for p in papers:
+        relevance = p.get("relevance_score")
+        table.add_row(str(p["id"]), p["title"], str(p.get("year") or "n.d."), p.get("venue") or "",
+                      f"{relevance:.2f}" if isinstance(relevance, (int, float)) else "")
+    console.print(table)
+    console.print(f"[{MUTED}]Dropped papers are replaced from the next {reserve} ranked "
+                  f"candidate(s), so the corpus keeps its size.[/{MUTED}]")
+
+
 def render_summary(console: Console, *, question: str, corpus_size: int,
                    target_format: str, provider_label: str,
                    target_words: int | None = None) -> None:
