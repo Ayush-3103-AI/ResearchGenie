@@ -1,0 +1,7 @@
+{
+  "cited_paper_ids": ["P001", "P002"],
+  "content": "Working memory improved [P001], and reaction times fell [P002].",
+  "summary": "Memory and reaction-time findings.",
+  "tag_id": "TAG-1",
+  "used_point_ids": ["P001-POINT-01", "P002-POINT-01"]
+}

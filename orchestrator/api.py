@@ -43,7 +43,7 @@ from shared.utilities import llm_provider  # noqa: E402
 FRONTEND = ROOT / "frontend" / "index.html"
 # Only the files the pipeline itself writes to <run>/final/ are downloadable.
 FINAL_FILES = {"draft.md", "quality_report.md", "validation_report.md",
-               "references.md", "paper.tex", "paper.pdf"}
+               "references.md", "evidence_table.md", "paper.tex", "paper.pdf"}
 
 app = FastAPI(
     title="AI Research Assistant",

@@ -3,6 +3,7 @@
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -221,3 +222,17 @@ def test_index_serves_frontend(client):
     response = client.get("/")
     assert response.status_code == 200
     assert "ResearchGenie" in response.text
+
+
+def test_evidence_table_is_downloadable_and_has_a_tab(client, monkeypatch, tmp_path):
+    (tmp_path / "final").mkdir()
+    (tmp_path / "final" / "evidence_table.md").write_text("# Evidence table\n", encoding="utf-8")
+    result = _fake_pipeline_result().model_copy(update={"run_directory": str(tmp_path)})
+    monkeypatch.setattr(orchestrator_api.run_registry, "get_run",
+                        lambda run_id: SimpleNamespace(result=result))
+
+    response = client.get("/research/runs/run1/files/evidence_table.md")
+    assert response.status_code == 200
+    assert response.text.startswith("# Evidence table")
+    page = client.get("/").text
+    assert '["evidence_table.md", "Evidence table", ".md"]' in page and '"Evidence": ""' in page

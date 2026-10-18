@@ -27,7 +27,7 @@ from shared.contracts.trend_contract import (  # noqa: E402
 )
 from shared.contracts.verification_contract import VerificationRequest  # noqa: E402
 from shared.contracts.writing_contract import WritingRequest  # noqa: E402
-from shared.utilities import latex_export  # noqa: E402
+from shared.utilities import evidence_table, latex_export  # noqa: E402
 from shared.utilities.run_paths import slugify  # noqa: E402
 
 
@@ -273,6 +273,11 @@ async def run_pipeline(
     (final_dir / "validation_report.md").write_text(qa_result.final_validation_report, encoding="utf-8")
     (final_dir / "references.md").write_text(
         "\n".join(f"- {entry}" for entry in qa_result.final_references) + "\n", encoding="utf-8",
+    )
+    # Deterministic, no LLM call — see shared/utilities/evidence_table.py.
+    (final_dir / "evidence_table.md").write_text(
+        evidence_table.build_evidence_table(Path(writing_result.run_directory), verification_result),
+        encoding="utf-8",
     )
 
     # LaTeX source is always generated (deterministic, no LLM call — see

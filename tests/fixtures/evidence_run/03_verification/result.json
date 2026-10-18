@@ -1,0 +1,33 @@
+{
+  "citation_issues": [],
+  "invalid_references": [
+    {
+      "doi": "10.1000/fake.999",
+      "issue": "DOI 10.1000/fake.999 was not found in Crossref or OpenAlex — it may be incorrect or fabricated.",
+      "reference_entry": "[2] A. Author, \"Ketosis and attention,\" Journal of Testing, 2021, doi: 10.1000/fake.999.",
+      "verification_source": "none",
+      "verified": false
+    }
+  ],
+  "missing_references": [],
+  "unverifiable_references": [
+    {
+      "doi": null,
+      "issue": "No DOI found in this reference entry — existence could not be checked automatically.",
+      "reference_entry": "[3] A. Author, \"A grey-literature report on fasting,\" Journal of Testing, 2021.",
+      "verification_source": "none",
+      "verified": false
+    }
+  ],
+  "validated_draft_markdown": "draft",
+  "validation_report": "# Citation Verification Report\n",
+  "verified_references": [
+    {
+      "doi": "10.1000/ABC.123",
+      "issue": null,
+      "reference_entry": "[1] A. Author, \"Fasting and memory in adults,\" Journal of Testing, 2021, doi: 10.1000/ABC.123.",
+      "verification_source": "Crossref",
+      "verified": true
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "citation": {
+    "citation_key": "P001",
+    "in_text_citation": "[1]",
+    "narrative_citation": "Author [1]",
+    "reference_entry": "[1] A. Author, \"Fasting and memory in adults,\" Journal of Testing, 2021, doi: 10.1000/ABC.123."
+  },
+  "metadata": {
+    "authors": ["A. Author"],
+    "doi": "https://doi.org/10.1000/ABC.123",
+    "issue": null,
+    "journal": "Journal of Testing",
+    "pages": null,
+    "paper_type": "journal-article",
+    "title": "Fasting and memory in adults",
+    "volume": null,
+    "year": 2021
+  },
+  "paper_id": "P001",
+  "points": {
+    "P001-POINT-01": {
+      "certainty": "supported",
+      "content": "Time-restricted eating improved working memory | recall scores.",
+      "content_type": "empirical_finding",
+      "point_id": "P001-POINT-01",
+      "stance": "supporting"
+    }
+  },
+  "tag_values": {
+    "TAG-ROOT": [],
+    "TAG-1": ["P001-POINT-01"],
+    "TAG-2": []
+  }
+}

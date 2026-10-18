@@ -1,0 +1,38 @@
+[
+  {
+    "ancestor_ids": [],
+    "child_ids": ["TAG-1", "TAG-2"],
+    "depth": 0,
+    "normalized_label": null,
+    "number": null,
+    "order": 0,
+    "parent_id": null,
+    "path_titles": ["Effects of intermittent fasting on cognition"],
+    "tag_id": "TAG-ROOT",
+    "title": "Effects of intermittent fasting on cognition"
+  },
+  {
+    "ancestor_ids": ["TAG-ROOT"],
+    "child_ids": [],
+    "depth": 1,
+    "normalized_label": null,
+    "number": null,
+    "order": 1,
+    "parent_id": "TAG-ROOT",
+    "path_titles": ["Effects of intermittent fasting on cognition", "Background"],
+    "tag_id": "TAG-1",
+    "title": "Background"
+  },
+  {
+    "ancestor_ids": ["TAG-ROOT"],
+    "child_ids": [],
+    "depth": 1,
+    "normalized_label": null,
+    "number": null,
+    "order": 2,
+    "parent_id": "TAG-ROOT",
+    "path_titles": ["Effects of intermittent fasting on cognition", "Findings"],
+    "tag_id": "TAG-2",
+    "title": "Findings"
+  }
+]
