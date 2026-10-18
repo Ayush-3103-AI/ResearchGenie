@@ -16,11 +16,14 @@ from .analysis import (analyze_gaps, economy_model, generate_queries,
                        mine_future_research, model)
 from .models import Paper, PipelineError, normalize_title
 from .relevance import build_topic_profile, screen_papers
+from .source_plan import plan_sources
 from .sources import SOURCE_URLS, SOURCES, openalex
 
 FULLTEXT_MAX_ATTEMPTS = 40   # papers we try to fetch full text for
 VERIFY_RESULTS_PER_CANDIDATE = 8
 MAX_CANDIDATES_FOR_ANALYSIS = 5  # caps final-synthesis output size; see D-009
+# The query each source reads from a queries dict (see discovery/sources/).
+_QUERY_FIELD = {"s2": "keyword", "openalex": "keyword", "pubmed": "pubmed", "arxiv": "arxiv"}
 
 
 def _merge(existing: Paper, incoming: Paper) -> None:
@@ -215,17 +218,18 @@ async def _verify_candidates(candidates: list[dict], corpus: list[Paper],
     return verification_papers, warnings
 
 
-async def _search_round(selected: list, queries: dict, per_source: int,
+async def _search_round(selected: list, queries: dict[str, dict], per_source: int,
                         gateway_run: scholarly_gateway.Run,
                         transport: httpx.AsyncBaseTransport | None) -> AsyncIterator:
-    """One search of `selected` sources through the gateway. Yields the
-    gateway's events and each source's result/error event, plus a
-    (source key, papers) tuple for every source that answered."""
+    """One search of `selected` sources through the gateway, each with its
+    own queries (queries[source key]). Yields the gateway's events and each
+    source's result/error event, plus a (source key, papers) tuple for every
+    source that answered."""
     async def search_all() -> list:
         async with httpx.AsyncClient(timeout=45, follow_redirects=True,
                                      transport=transport) as http:
             return await asyncio.gather(
-                *[fn(http, queries, per_source) for _, _, fn in selected],
+                *[fn(http, queries[key], per_source) for key, _, fn in selected],
                 return_exceptions=True,
             )
 
@@ -306,10 +310,13 @@ async def run_pipeline(question: str, source_keys: list[str],
                        quality: str = "balanced",
                        keywords: list[str] | None = None,
                        transport: httpx.AsyncBaseTransport | None = None,
-                       approve: Approver | None = None) -> AsyncIterator[dict]:
+                       approve: Approver | None = None,
+                       domain: str | None = None,
+                       preferred_databases: list[str] | None = None) -> AsyncIterator[dict]:
     """`transport` is a test seam (httpx.MockTransport); production leaves it None.
     `approve` pauses the run after screening for the paper approval step
-    (#17); without it the corpus is approved automatically."""
+    (#17); without it the corpus is approved automatically. `domain` and
+    `preferred_databases` steer which of `source_keys` are searched (#16)."""
     selected = [(k, *SOURCES[k]) for k in source_keys if k in SOURCES]
     if not selected:
         raise PipelineError("Select at least one literature source.")
@@ -330,10 +337,21 @@ async def run_pipeline(question: str, source_keys: list[str],
     yield {"type": "status", "stage": "queries", "state": "done",
            "message": f"Search queries ready — “{queries['keyword']}”"}
 
+    # Which databases fit the question, and the query for each (#16).
+    plan = await plan_sources(question, queries, [k for k, _, _ in selected], fast_model,
+                              domain, preferred_databases)
+    selected = [s for s in selected if s[0] in plan["queries"]]
+    shown = [{"key": key, "source": label, "query": plan["queries"][key][_QUERY_FIELD[key]]}
+             for key, label, _ in selected]
+    yield {"type": "tool_plan", "mode": plan["mode"], "reason": plan["reason"], "plan": shown,
+           "message": "Searching " + ", ".join(f"{s['source']} (“{s['query']}”)" for s in shown)
+                      + (" — chosen by the model." if plan["mode"] == "model"
+                         else f" — default sources, because {plan['reason']}.")}
+
     yield {"type": "status", "stage": "search", "state": "running",
            "message": f"Searching {len(selected)} database(s)…"}
     answered: list[str] = []
-    async for item in _search_round(selected, queries, per_source, gateway_run, transport):
+    async for item in _search_round(selected, plan["queries"], per_source, gateway_run, transport):
         if isinstance(item, tuple):
             answered.append(item[0])
             all_papers.extend(item[1])
@@ -377,8 +395,8 @@ async def run_pipeline(question: str, source_keys: list[str],
                        "message": f"{error} Continuing with the first search's papers."}
             else:
                 found: list[Paper] = []
-                async for item in _search_round(usable, retry_queries, per_source,
-                                                gateway_run, transport):
+                async for item in _search_round(usable, {k: retry_queries for k, _, _ in usable},
+                                                per_source, gateway_run, transport):
                     if isinstance(item, tuple):
                         found.extend(item[1])
                     else:

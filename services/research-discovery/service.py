@@ -60,9 +60,13 @@ async def run_discovery(request: DiscoveryRequest,
     async for event in run_pipeline(request.research_question, source_keys,
                                     PER_SOURCE_RESULTS, request.corpus_size,
                                     fulltext_enabled=True, quality="balanced",
-                                    keywords=request.keywords, approve=approve):
+                                    keywords=request.keywords, approve=approve,
+                                    domain=request.domain,
+                                    preferred_databases=request.preferred_databases):
         if event["type"] == "queries":
             queries = event["queries"]
+        elif event["type"] == "tool_plan":
+            source_keys = [p["key"] for p in event["plan"]]
         elif event["type"] == "corpus":
             corpus_papers = event["papers"]
         elif event["type"] == "fulltext_done":

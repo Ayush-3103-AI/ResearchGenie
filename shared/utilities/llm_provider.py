@@ -276,6 +276,44 @@ async def complete_json(*, system: str, user: str, schema: dict,
     return comp
 
 
+async def complete_tools(*, system: str, user: str, tools: list[dict],
+                         model: str | None = None, max_tokens: int = 800,
+                         temperature: float = 0.2) -> list[dict] | None:
+    """One chat turn that may call tools (Ollama's /api/chat `tools`, #16).
+    Returns the calls as [{"name": str | None, "arguments": Any}], unchecked —
+    the caller validates them. None means this provider can't call tools here
+    (Gemini, or an Ollama model without tool support), so the caller falls back.
+    Raises LLMProviderError when the model can't be reached at all."""
+    if AI_PROVIDER == "gemini":
+        return None  # ponytail: Gemini function calling not wired; the domain fallback covers it
+    model = model or DEFAULT_MODEL
+    payload = {
+        "model": model,
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        "tools": tools, "stream": False, "think": False,
+        "options": {"temperature": temperature, "num_predict": max_tokens,
+                    "num_ctx": _context_window_for(max_tokens, len(system) + len(user) + len(json.dumps(tools)))},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=120) as http:
+            resp = await http.post(f"{OLLAMA_HOST}/api/chat", json=payload)
+    except httpx.ConnectError:
+        raise LLMProviderError("Could not reach the local Ollama server at "
+                               f"{OLLAMA_HOST}. Start it with: ollama serve") from None
+    except httpx.HTTPError as error:
+        raise LLMProviderError(f"Ollama tool call failed ({type(error).__name__}).") from None
+    if resp.status_code == 400 and "does not support tools" in resp.text:
+        return None
+    if resp.status_code == 404:
+        raise LLMProviderError(f"Model '{model}' is not installed in Ollama. Run: ollama pull {model}")
+    if resp.status_code >= 400:
+        raise LLMProviderError(f"Ollama returned an error ({resp.status_code}).")
+    calls = ((resp.json().get("message") or {}).get("tool_calls")) or []
+    return [{"name": (c.get("function") or {}).get("name"),
+             "arguments": (c.get("function") or {}).get("arguments")}
+            for c in calls if isinstance(c, dict)]
+
+
 async def health_check(model: str | None = None) -> bool:
     """True if the configured provider is ready: for Gemini, that an API key
     is configured (a real reachability check costs a token-billed request,
