@@ -172,6 +172,34 @@ def test_stream_research_run_events_returns_404_for_unknown_run_id(client):
     assert response.status_code == 404
 
 
+@pytest.mark.parametrize("fake_stages, expected_status", [
+    (_fake_run_pipeline_success, "completed"),
+    (_fake_run_pipeline_failure, "failed"),
+])
+def test_past_run_survives_restart_from_events_jsonl(client, monkeypatch, tmp_path, fake_stages, expected_status):
+    from orchestrator import pipeline as orchestrator_pipeline
+    from orchestrator import run_registry
+
+    # Real run_pipeline wrapper (so events.jsonl gets written), fake stages.
+    monkeypatch.setattr(orchestrator_pipeline, "_run_stages", fake_stages)
+    monkeypatch.setattr(orchestrator_pipeline, "DEFAULT_OUTPUT_ROOT", tmp_path)
+    response = client.post("/research/runs", json={"research_question": "What is X?"})
+    run_id = response.json()["run_id"]
+    before = _wait_for_status(client, run_id, {"completed", "failed"})
+
+    monkeypatch.setattr(run_registry, "_runs", {})  # simulated restart
+
+    body = client.get(f"/research/runs/{run_id}").json()
+    assert body == before
+    assert body["status"] == expected_status
+
+    with client.stream("GET", f"/research/runs/{run_id}/events") as stream:
+        assert stream.status_code == 200
+        replay = "".join(stream.iter_text())
+    assert '"message": "working"' in replay
+    assert replay.endswith("event: end\ndata: {}\n\n")
+
+
 def test_advisor_shortlist_hands_off_to_pipeline_under_same_run_id(client, monkeypatch):
     from shared.contracts.trend_contract import TopicCandidate, TrendAdvisorResult
 

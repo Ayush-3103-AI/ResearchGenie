@@ -2,19 +2,20 @@
 GET /research/runs/{run_id} and its SSE event stream (orchestrator/api.py).
 
 Deliberately in-memory and single-process: this is an MVP addition with no
-job queue or persistence layer of its own — a run's live status is only
-queryable from the same server process that started it, and is lost on
-restart (though its artifacts on disk under outputs/ persist regardless,
-same as any run started through the existing synchronous POST /research).
-See DECISIONS.md D-017.
+job queue of its own — a run's live status is only queryable from the same
+server process that started it (see DECISIONS.md D-017). A pipeline run id
+not in memory (after a restart, or a run started from the CLI) is rebuilt
+read-only from the events.jsonl log run_pipeline writes into its run folder.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
+from orchestrator import pipeline
 from shared.contracts.pipeline_contract import PipelineResult, ResearchRequest
 
 RunPipelineFn = Callable[..., Any]
@@ -34,7 +35,35 @@ _runs: dict[str, RunState] = {}
 
 
 def get_run(run_id: str) -> RunState | None:
-    return _runs.get(run_id)
+    return _runs.get(run_id) or _load_run_from_disk(run_id)
+
+
+def _load_run_from_disk(run_id: str) -> RunState | None:
+    """Rebuilds a past run from outputs/<slug>_<run_id>/events.jsonl: the
+    same events (the result re-validated into a PipelineResult) plus the
+    end marker, so status and SSE replay behave as they did live. A log
+    with neither a result nor an error line means the process stopped
+    mid-run, reported as failed. Not cached: the log stays the source."""
+    output_root = pipeline.DEFAULT_OUTPUT_ROOT
+    if not output_root.is_dir():
+        return None
+    for run_directory in output_root.iterdir():
+        log_path = run_directory / "events.jsonl"
+        # Folder names are <slug>_<run_id> and slugs never contain "_".
+        if run_directory.name.partition("_")[2] != run_id or not log_path.is_file():
+            continue
+        state = RunState(run_id=run_id, status="failed", error="Run stopped before finishing.")
+        for line in log_path.read_text(encoding="utf-8").splitlines():
+            event = json.loads(line)
+            if event["type"] == "result":
+                event["result"] = PipelineResult.model_validate(event["result"])
+                state.status, state.result, state.error = "completed", event["result"], None
+            elif event["type"] == "error":
+                state.status, state.error = "failed", event["message"]
+            state.events.append(event)
+        state.events.append({"type": "end"})
+        return state
+    return None
 
 
 def _publish(state: RunState, event: dict[str, Any]) -> None:

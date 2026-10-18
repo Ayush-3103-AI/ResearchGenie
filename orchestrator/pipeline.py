@@ -126,6 +126,40 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
 
 async def run_pipeline(
     request: ResearchRequest, output_root: Path | None = None, run_id: str | None = None,
+    **stage_options: Any,
+) -> AsyncIterator[dict[str, Any]]:
+    """The entry point every surface (CLI, API, web) uses: runs _run_stages
+    (see its docstring for the events and stage_options) and appends each
+    event to <run_dir>/events.jsonl before passing it on unchanged, plus an
+    {"type": "error"} line if it raises. One line per event, written and
+    closed as it arrives, so a crash keeps everything logged so far;
+    run_registry rebuilds past runs from this file after a restart.
+
+    The log is opened per event rather than up front: _run_stages may
+    rename the Stage 0 folder into the run folder, which it only does if
+    the run folder doesn't exist yet, and it has created the folder by the
+    time it yields its first event."""
+    output_root = output_root or DEFAULT_OUTPUT_ROOT
+    run_id = run_id or uuid4().hex
+    log_path = output_root / f"{slugify(request.research_question)}_{run_id}" / "events.jsonl"
+
+    def append(event: dict[str, Any]) -> None:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as log:
+            log.write(json.dumps(event, ensure_ascii=False, default=lambda o: o.model_dump(mode="json")) + "\n")
+
+    try:
+        async for event in _run_stages(request, output_root=output_root, run_id=run_id, **stage_options):
+            append(event)
+            yield event
+    except Exception as error:
+        # Same message run_registry reports for a failed run.
+        append({"type": "error", "message": str(error) or type(error).__name__})
+        raise
+
+
+async def _run_stages(
+    request: ResearchRequest, output_root: Path | None = None, run_id: str | None = None,
     trend_advisor: TrendAdvisorResult | None = None,
     advisor_directory: Path | str | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
