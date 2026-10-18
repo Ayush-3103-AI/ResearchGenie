@@ -700,10 +700,12 @@ function renderSources(providers) {
   $("sources").hidden = false;
   $("sources").dataset.state = degraded.length ? "bad" : "ok";
   $("sourcesText").textContent = degraded.length
-    ? `Sources · ${degraded.length} degraded`
+    ? `Sources · ${degraded.map((p) => p.name).join(", ")} degraded`
     : `Sources · ${keyed ? keyed + " keyed" : "no keys"}`;
-  $("sources").title = providers.map((p) =>
-    `${p.name}: ${p.access}, ${p.health}${p.reason ? " (" + p.reason + ")" : ""}`).join("\n");
+  const detail = providers.map((p) =>
+    `${p.name}: ${p.access}, ${p.health}${p.reason ? " (" + p.reason + ")" : ""}`);
+  $("sources").title = detail.join("\n");
+  $("sources").setAttribute("aria-label", "Literature sources. " + detail.join(". "));
 }
 
 // ---- system status ----

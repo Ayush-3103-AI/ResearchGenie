@@ -383,6 +383,7 @@ async def run_pipeline(question: str, source_keys: list[str],
                         found.extend(item[1])
                     else:
                         yield item
+                all_papers.extend(found)
                 unique = dedupe(unique + found)
                 accepted, rejected = screen_papers(unique, profile)
                 yield {"type": "replan", "round": 2, "reason": f"{thin} after the first search.",

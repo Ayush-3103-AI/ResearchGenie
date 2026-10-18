@@ -127,11 +127,13 @@ async def resume_research_run(run_id: str, body: ResumeRequest) -> dict[str, str
     if directory is None:
         raise HTTPException(status_code=404, detail=f"Unknown run_id: {run_id}")
     try:
-        plan_resume(directory, body.from_stage)  # fail now, not in the background
+        plan = plan_resume(directory, body.from_stage)  # fail now, not in the background
     except PipelineError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+    approve = run_registry.approver(run_id) if plan["request"].approval == "ask" else None
     await run_registry.start_run(
-        None, run_id, lambda _request, run_id: resume_pipeline(directory, body.from_stage))
+        None, run_id,
+        lambda _request, run_id: resume_pipeline(directory, body.from_stage, approve=approve))
     return {"run_id": run_id}
 
 

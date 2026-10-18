@@ -42,7 +42,7 @@ import weakref
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import AsyncIterator, Callable, Coroutine
-from urllib.parse import urlsplit
+from urllib.parse import quote, quote_plus, urlsplit
 
 import httpx
 
@@ -118,11 +118,13 @@ DEGRADED_SECONDS = 15 * 60  # a tripped breaker shows the provider as degraded t
 
 
 def redact(text: str) -> str:
-    """`text` with every configured key and the contact email masked."""
+    """`text` with every configured key and the contact email masked, raw
+    and as httpx percent-encodes it in a query string (`@` -> `%40`)."""
     for name in SECRET_ENVS:
         value = os.getenv(name)
         if value:
-            text = text.replace(value, "***")
+            for form in {value, quote(value, safe=""), quote_plus(value)}:
+                text = text.replace(form, "***")
     return text
 
 

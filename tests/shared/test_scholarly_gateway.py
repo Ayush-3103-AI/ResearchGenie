@@ -372,7 +372,9 @@ def test_host_policy_sets_fan_out_concurrency():
 
 # ------------------------------------------------------------- keys (#5)
 
-OPENALEX_KEY, NCBI_KEY, EMAIL = "oa-secret-key-123", "ncbi-secret-key-456", "student@example.edu"
+# The `+` and `@` make the email look different once percent-encoded in a URL.
+OPENALEX_KEY, NCBI_KEY, EMAIL = "oa-secret-key-123", "ncbi-secret-key-456", "a.b+c@example.edu"
+ENCODED_EMAIL = "a.b%2Bc%40example.edu"
 
 
 def _keys(monkeypatch):
@@ -428,7 +430,7 @@ def test_no_key_or_email_leaks_into_errors_tracebacks_or_logs(monkeypatch, caplo
 
     shown = str(caught.value) + "".join(traceback.format_exception(caught.value)) + caplog.text
     assert "api.openalex.org" in shown  # the URL is still there, just without its secrets
-    for secret in (OPENALEX_KEY, EMAIL):
+    for secret in (OPENALEX_KEY, EMAIL, ENCODED_EMAIL, "c%40example.edu"):
         assert secret not in shown
     assert scholarly_gateway.redact(f"key={OPENALEX_KEY}&email={EMAIL}") == "key=***&email=***"
 

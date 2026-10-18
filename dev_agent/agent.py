@@ -232,7 +232,9 @@ def _report(state: State, diff: str, audit_dir: Path) -> dict:
     rounds, passed = state.get("rounds", 0), state.get("passed", False)
     if passed and rounds:
         status = "green"
-        summary = f"Reached green in {rounds} patch round(s). Review patch.diff, then `git apply` it."
+        summary = (f"The acceptance test is green after {rounds} patch round(s); the rest of "
+                   "the suite was not run. Review patch.diff, run the full tests, then "
+                   "`git apply` it.")
     elif passed:
         status = "not_red"
         summary = ("The new test passed before any patch, so it does not test the ticket. "
