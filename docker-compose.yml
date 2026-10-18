@@ -1,0 +1,66 @@
+# Two ways to run ResearchGenie (pick one profile):
+#   docker compose --profile local up    # app + Ollama in a container
+#   docker compose --profile cloud up    # app only, Gemini (needs GEMINI_API_KEY)
+# NVIDIA GPU for Ollama: add -f docker-compose.gpu.yml (see README).
+# Keys come from your shell or a git-ignored .env file, never the image.
+
+x-app: &app
+  build: .
+  image: researchgenie:latest
+  ports:
+    - "${RESEARCHGENIE_PORT:-8000}:8000"
+  volumes:
+    - ./outputs:/app/outputs           # run folders land here on the host
+    - researchgenie-home:/home/app     # tectonic TeX cache, ~/.researchgenie
+  restart: unless-stopped
+
+services:
+  app:
+    <<: *app
+    profiles: [local]
+    environment:
+      AI_PROVIDER: ollama
+      OLLAMA_HOST: http://ollama:11434
+      LOCAL_AI_MODEL: ${LOCAL_AI_MODEL:-qwen3.5:9b}
+      CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+      S2_API_KEY: ${S2_API_KEY:-}
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:0.35.1
+    profiles: [local]
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      retries: 30
+    restart: unless-stopped
+
+  # One-shot: pulls the model into the ollama volume (about 6.6 GB the first
+  # time, a quick no-op afterwards), then exits. /system turns green when done.
+  ollama-pull:
+    image: ollama/ollama:0.35.1
+    profiles: [local]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama", "pull", "${LOCAL_AI_MODEL:-qwen3.5:9b}"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+  app-cloud:
+    <<: *app
+    profiles: [cloud]
+    environment:
+      AI_PROVIDER: gemini
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+      S2_API_KEY: ${S2_API_KEY:-}
+
+volumes:
+  ollama-models:
+  researchgenie-home:
