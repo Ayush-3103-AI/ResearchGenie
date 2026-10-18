@@ -25,11 +25,12 @@ RunPipelineFn = Callable[..., Any]
 @dataclass
 class RunState:
     run_id: str
-    status: str = "running"  # running | completed | failed
+    status: str = "running"  # running | awaiting_approval | completed | failed
     events: list[dict[str, Any]] = field(default_factory=list)
     result: PipelineResult | None = None
     error: str | None = None
     subscribers: list[asyncio.Queue] = field(default_factory=list)
+    approval: asyncio.Future | None = None  # set while the run waits at the approval step
 
 
 _runs: dict[str, RunState] = {}
@@ -60,6 +61,30 @@ def _load_run_from_disk(run_id: str) -> RunState | None:
         state.events.append(event)
     state.events.append({"type": "end"})
     return state
+
+
+def approver(run_id: str):
+    """The paper approval step's callback for a web run (#17): the run shows
+    as awaiting_approval until approve(run_id, drop) is called."""
+    async def wait_for_approval(papers: list[dict], reserve: int) -> dict:
+        state = _runs[run_id]
+        state.approval = asyncio.get_running_loop().create_future()
+        state.status = "awaiting_approval"
+        try:
+            drop = await state.approval
+        finally:
+            state.approval, state.status = None, "running"
+        return {"approved_by": "web", "drop": drop}
+    return wait_for_approval
+
+
+def approve(run_id: str, drop: list[int]) -> bool:
+    """Continues a run waiting at the approval step; False if none is waiting."""
+    state = _runs.get(run_id)
+    if state is None or state.approval is None or state.approval.done():
+        return False
+    state.approval.set_result(drop)
+    return True
 
 
 def _publish(state: RunState, event: dict[str, Any]) -> None:

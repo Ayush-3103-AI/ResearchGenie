@@ -44,8 +44,8 @@ from researchgenie import ollama_manager as om  # noqa: E402
 from researchgenie.setup_wizard import run_setup_wizard  # noqa: E402
 from researchgenie.theme import ACCENT, ERROR, MUTED, OK, WARN  # noqa: E402
 from researchgenie.tui import (  # noqa: E402
-    PipelineView, render_banner, render_completion, render_failure, render_provider_status,
-    render_summary,
+    PipelineView, render_approval_table, render_banner, render_completion, render_failure,
+    render_provider_status, render_summary,
 )
 from shared.contracts.pipeline_contract import Clarification, ResearchRequest  # noqa: E402
 from shared.utilities import library, scholarly_gateway  # noqa: E402
@@ -137,7 +137,20 @@ def _collect_request(console: Console) -> ResearchRequest:
     return ResearchRequest(
         research_question=question, corpus_size=corpus_size, target_format=target_format,
         max_draft_length=target_words, clarify="ask", clarification=clarification,
+        approval="ask",
     )
+
+
+def parse_approval(answer: str, count: int) -> list[int] | None:
+    """The approval step's answer (#17): [] approves as shown, "drop 2,5"
+    gives the paper numbers to replace, anything else is None (ask again)."""
+    words = answer.strip().lower()
+    if words in ("", "y", "yes", "ok", "approve"):
+        return []
+    numbers = words.removeprefix("drop").replace(",", " ").split() if words.startswith("drop") else []
+    if not numbers or not all(n.isdigit() and 1 <= int(n) <= count for n in numbers):
+        return None
+    return sorted({int(n) for n in numbers})
 
 
 def _clarify(console: Console, question: str) -> tuple[str, Clarification]:
@@ -172,16 +185,30 @@ def _provider_label(config: rg_config.Config) -> str:
 
 async def _run_research(console: Console, request: ResearchRequest | None,
                         trend_advisor=None, run_id: str | None = None,
-                        advisor_directory: str | None = None, events=None) -> None:
+                        advisor_directory: str | None = None, start=None) -> None:
     """trend_advisor is the optional Stage 0 result, passed only by the
     `researchgenie-advise` flow — see orchestrator/pipeline.py. run_id and
     advisor_directory come with it, so Stage 0's folder becomes this run's.
-    events replaces the pipeline run with another event stream (a resume)."""
+    start(approve) replaces the pipeline run with another event stream (a resume)."""
     view = PipelineView(include_trend_advisor=trend_advisor is not None)
     result = None
     error: PipelineError | None = None
-    events = events or run_pipeline(request, trend_advisor=trend_advisor, run_id=run_id,
-                                    advisor_directory=advisor_directory)
+
+    async def approve(papers: list[dict], reserve: int) -> dict:
+        """The paper approval step (#17), outside the live view while it asks."""
+        live.stop()
+        render_approval_table(console, papers, reserve)
+        while (drop := parse_approval(Prompt.ask(
+                "Press Enter to approve, or type e.g. [bold]drop 2,5[/bold]",
+                default="", show_default=False), len(papers))) is None:
+            console.print(f"[{WARN}]Press Enter, or type drop and the paper numbers.[/{WARN}]")
+        live.start()
+        return {"approved_by": "cli", "drop": drop}
+
+    start = start or (lambda approve: run_pipeline(
+        request, trend_advisor=trend_advisor, run_id=run_id,
+        advisor_directory=advisor_directory, approve=approve))
+    events = start(approve)
 
     with Live(view.render(), console=console, refresh_per_second=6) as live:
         try:
@@ -295,7 +322,8 @@ def _resume_command(console: Console, config: rg_config.Config, args: list[str])
         sys.exit(2)
     if not _ensure_ready(console, config):
         sys.exit(1)
-    asyncio.run(_run_research(console, None, events=resume_pipeline(directory, from_stage)))
+    asyncio.run(_run_research(console, None, start=lambda approve: resume_pipeline(
+        directory, from_stage, approve=approve)))
 
 
 def main() -> None:

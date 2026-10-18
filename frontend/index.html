@@ -507,6 +507,18 @@ textarea.lg { font-size: 16px; min-height: 110px; }
       </div>
     </article>
 
+    <!-- Paper approval (#17): shown while a run is awaiting_approval -->
+    <article class="card" id="approval" hidden>
+      <div class="card-body">
+        <div class="card-head"><h2>Approve the papers</h2><span class="sub" id="approvalMeta"></span></div>
+        <ol class="topics" id="approvalBody"></ol>
+        <div class="form-foot" style="margin-top:12px">
+          <button class="btn primary" type="button" id="approveBtn">Approve and continue</button>
+          <span class="muted">Dropped papers are replaced from the next ranked candidates.</span>
+        </div>
+      </div>
+    </article>
+
     <!-- 3. Shortlist -->
     <article class="card" id="shortlist" hidden>
       <div class="card-summary">
@@ -838,6 +850,8 @@ function follow(id, onResult) {
     const ev = JSON.parse(msg.data);
     if (ev.type === "progress") {
       if (!startedAt) { startedAt = Date.parse(ev.timestamp) || Date.now(); startTimer(); }
+      if (ev.details?.raw_type === "approval_request") showApproval(ev.details.papers || [], ev.details.reserve || 0);
+      if (ev.details?.raw_type === "approval") $("approval").hidden = true;
       applyProgress(ev);
       const secs = ev.details && ev.details.seconds != null ? ` (${ev.details.seconds}s)` : "";
       const quiet = ev.details?.raw_type && ev.message === ev.details.raw_type;
@@ -867,6 +881,29 @@ function follow(id, onResult) {
   };
 }
 $("reconnect").onclick = () => { if (!runId) return; resetProgress(); follow(runId, followHandler); };
+
+// ---- paper approval before Writing (#17) ----
+function showApproval(papers, reserve) {
+  $("approvalMeta").textContent = `${papers.length} selected · ${reserve} ranked candidate${reserve === 1 ? "" : "s"} in reserve`;
+  $("approvalBody").innerHTML = papers.map((p) => `
+    <li class="topic">
+      <div class="topic-head"><span class="rank">${String(p.id).padStart(2, "0")}</span><h3>${esc(p.title)}</h3>
+        <label class="chip"><input type="checkbox" data-drop="${p.id}"><span>Drop</span></label></div>
+      <p class="muted small">${p.year || "n.d."}${p.venue ? " · " + esc(p.venue) : ""}${p.relevance_score != null ? " · relevance " + Number(p.relevance_score).toFixed(2) : ""}</p>
+    </li>`).join("");
+  $("approval").hidden = false;
+  $("approval").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+$("approveBtn").onclick = async (e) => {
+  if (!runId) return;
+  const drop = [...document.querySelectorAll("#approvalBody [data-drop]:checked")].map((c) => Number(c.dataset.drop));
+  busy(e.target, true, "Continuing…");
+  try {
+    await api(`/research/runs/${encodeURIComponent(runId)}/approve`, { drop });
+    $("approval").hidden = true;
+  } catch (err) { notify(err.message, "bad"); }
+  busy(e.target, false);
+};
 // Shown only after a run's error event: earlier stages load from disk, nothing is redone (#9).
 $("resume").onclick = async () => {
   if (!runId) return;
@@ -985,7 +1022,7 @@ $("lockForm").onsubmit = async (e) => {
   if (!question) { $("lockQuestion").focus(); return notify("Write a research question before running.", "warn"); }
   const btn = e.submitter; busy(btn, true, "Starting…");
   try {
-    await api(`/advisor/runs/${runId}/pipeline`, { topic: lockedTopic, research_question: question, ...readOptions("l") });
+    await api(`/advisor/runs/${runId}/pipeline`, { topic: lockedTopic, research_question: question, ...readOptions("l"), approval: "ask" });
     collapse("lockin", `Question: <b>${esc(question)}</b>`);
     document.querySelectorAll("[data-pick], #chatForm input, #chatForm button, #suggest button").forEach((b) => { b.disabled = true; });
     $("chatInput").placeholder = "The advisor chat closes once the pipeline starts.";
@@ -1030,7 +1067,7 @@ $("directForm").onsubmit = async (e) => {
   busy(btn, true, "Starting…");
   hideAfter("shortlist", "lockin", "results"); $("notice").hidden = true;
   try {
-    const { run_id } = await api("/research/runs", { research_question: question, ...readOptions("d"), clarify: "ask", clarification: record });
+    const { run_id } = await api("/research/runs", { research_question: question, ...readOptions("d"), clarify: "ask", clarification: record, approval: "ask" });
     clarifyPending = null; $("clarify").hidden = true;
     resetProgress();
     collapse("start", `Question: <b>${esc(question)}</b>`);

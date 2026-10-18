@@ -92,7 +92,22 @@ async def start_research_run(request: ResearchRequest) -> dict[str, str]:
     GET /research/runs/{run_id} for status, or GET
     /research/runs/{run_id}/events for a live SSE progress stream."""
     run_id = uuid4().hex
-    await run_registry.start_run(request, run_id, run_pipeline)
+    # approval "ask": pause after Discovery until POST .../approve (#17).
+    approve = {"approve": run_registry.approver(run_id)} if request.approval == "ask" else {}
+    await run_registry.start_run(
+        request, run_id, lambda req, run_id: run_pipeline(req, run_id=run_id, **approve))
+    return {"run_id": run_id}
+
+
+class Approval(BaseModel):
+    drop: list[int] = []  # ids of the shown papers to replace from the ranked candidates
+
+
+@app.post("/research/runs/{run_id}/approve")
+async def approve_research_run(run_id: str, approval: Approval) -> dict[str, str]:
+    """Continues a run that is awaiting_approval, dropping the given papers."""
+    if not run_registry.approve(run_id, approval.drop):
+        raise HTTPException(status_code=409, detail="This run is not waiting for approval.")
     return {"run_id": run_id}
 
 
@@ -290,8 +305,9 @@ async def advisor_to_pipeline(run_id: str, handoff: AdvisorHandoff) -> dict[str,
     result, directory = _advisor_result(run_id)
     chosen = advisor_cli.with_chosen_topic(result, _candidate(result, handoff.topic))
     request = ResearchRequest(**handoff.model_dump(exclude={"topic"}))
+    approve = {"approve": run_registry.approver(run_id)} if request.approval == "ask" else {}
     await run_registry.start_run(
         request, run_id,
         lambda req, run_id: run_pipeline(req, run_id=run_id, trend_advisor=chosen,
-                                         advisor_directory=directory))
+                                         advisor_directory=directory, **approve))
     return {"run_id": run_id}

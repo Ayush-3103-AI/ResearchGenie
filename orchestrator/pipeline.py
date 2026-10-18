@@ -141,14 +141,16 @@ def plan_resume(run_directory: Path, from_stage: str | None = None) -> dict[str,
 
 
 async def resume_pipeline(run_directory: Path | str, from_stage: str | None = None,
-                          ) -> AsyncIterator[dict[str, Any]]:
+                          approve: Callable | None = None) -> AsyncIterator[dict[str, Any]]:
     """Resumes a run folder from `from_stage` (default: the first stage
     without a saved result). Earlier stages are loaded through their
-    contracts, not re-run; the events append to the same events.jsonl."""
+    contracts, not re-run; the events append to the same events.jsonl.
+    approve is the approval step's callback, used when Discovery re-runs."""
     plan = plan_resume(Path(run_directory), from_stage)
     async for event in run_pipeline(
         plan["request"], output_root=plan["output_root"], run_id=plan["run_id"],
         trend_advisor=plan["trend_advisor"], resume=(plan["from_stage"], plan["loaded"]),
+        approve=approve,
     ):
         yield event
 
@@ -197,6 +199,10 @@ def _progress_event(
     }
 
 
+_PASSED_THROUGH = ("host", "wait_seconds", "remedy", "papers", "reserve", "approved_by",
+                   "approved_at", "dropped", "replacements")
+
+
 def _adapt_inner_event(run_id: str, stage: str, service: str, inner: dict[str, Any]) -> dict[str, Any]:
     """Wrap one of a service's own progress events (each service emits its
     own ad hoc shape — see each service.py) into the standard format."""
@@ -211,9 +217,10 @@ def _adapt_inner_event(run_id: str, stage: str, service: str, inner: dict[str, A
     message = inner.get("message") or inner_type
     title = message if len(message) <= 60 else f"{stage.replace('_', ' ').title()} update"
     # The scholarly gateway's rate_limited / provider_exhausted events carry
-    # their host, wait and remedy through to the standard shape.
+    # their host, wait and remedy through to the standard shape; the approval
+    # step (#17) its papers and decision, so the event log records them.
     details = {"raw_type": inner_type,
-               **{k: inner[k] for k in ("host", "wait_seconds", "remedy") if k in inner}}
+               **{k: inner[k] for k in _PASSED_THROUGH if k in inner}}
     return _progress_event(
         run_id=run_id, stage=stage, service=service, status=status,
         title=title, message=message, details=details,
@@ -286,6 +293,7 @@ async def _run_stages(
     trend_advisor: TrendAdvisorResult | None = None,
     advisor_directory: Path | str | None = None,
     resume: tuple[str, dict[str, Any]] | None = None,
+    approve: Callable | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Yields standardized progress events, then a final
     {"type": "result", "result": PipelineResult} event. Raises
@@ -303,7 +311,11 @@ async def _run_stages(
 
     resume is (from_stage, {stage: saved result}) from resume_pipeline (#9):
     the loaded stages are not re-run, and an existing final/ is kept as
-    final_vN before anything new is written."""
+    final_vN before anything new is written.
+
+    approve is the paper approval step's callback (#17), handed to
+    Discovery; without one the corpus is approved automatically, so
+    headless runs, scripts and tests never stall."""
     output_root = output_root or DEFAULT_OUTPUT_ROOT
     run_id = run_id or uuid4().hex
     run_directory = output_root / f"{slugify(request.research_question)}_{run_id}"
@@ -383,7 +395,8 @@ async def _run_stages(
             corpus_size=request.corpus_size,
         )
         discovery_result = None
-        async for event in discovery_service.run_discovery(discovery_request):
+        async for event in discovery_service.run_discovery(
+                discovery_request, **({"approve": approve} if approve else {})):
             if event["type"] == "result":
                 discovery_result = event["result"]
             else:

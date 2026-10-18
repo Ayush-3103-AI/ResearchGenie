@@ -347,7 +347,7 @@ def main() -> None:
         # scores candidates against user keywords as its highest-confidence
         # terms (D-018), so the pick keeps steering the search even if the
         # student rewrote the question above into something looser.
-        ResearchRequest(research_question=question, keywords=[chosen.topic]),
+        ResearchRequest(research_question=question, keywords=[chosen.topic], approval="ask"),
         trend_advisor=with_chosen_topic(result, chosen),
         run_id=run_id, advisor_directory=advisor_directory,
     ))

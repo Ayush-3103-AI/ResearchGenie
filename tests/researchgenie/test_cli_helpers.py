@@ -19,3 +19,12 @@ def test_provider_label_for_ollama():
 def test_provider_label_for_gemini():
     config = Config(provider="gemini", gemini_model="gemini-2.5-flash")
     assert _provider_label(config) == "Gemini · gemini-2.5-flash"
+
+
+def test_the_approval_answer_accepts_enter_or_a_drop_list():
+    from researchgenie.cli import parse_approval
+    assert parse_approval("", 8) == []
+    assert parse_approval("drop 2,5", 8) == [2, 5]
+    assert parse_approval("Drop 2, 5 7", 8) == [2, 5, 7]
+    assert parse_approval("drop 9", 8) is None
+    assert parse_approval("maybe", 8) is None

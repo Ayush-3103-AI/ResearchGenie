@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import math
-from typing import AsyncIterator
+from typing import AsyncIterator, Awaitable, Callable
 
 import httpx
 
@@ -215,6 +215,45 @@ async def _verify_candidates(candidates: list[dict], corpus: list[Paper],
     return verification_papers, warnings
 
 
+# approve(papers, reserve_size) -> {"approved_by": str, "drop": [paper ids]} (#17)
+Approver = Callable[[list[dict], int], Awaitable[dict]]
+
+
+def _paper_ref(p: Paper) -> dict:
+    return {"title": p.title, "doi": p.doi, "year": p.year}
+
+
+async def _approve_corpus(corpus: list[Paper], reserve: list[Paper],
+                          approve: Approver | None) -> AsyncIterator:
+    """The approval step: asks `approve` (or approves automatically when
+    there is none), replaces each dropped paper with the next ranked
+    candidate, and renumbers. Yields its events, then the approved corpus."""
+    if approve is None:
+        decision = {"approved_by": "auto", "drop": []}
+    else:
+        yield {"type": "approval_request", "reserve": len(reserve),
+               "message": f"Waiting for approval of the {len(corpus)} selected paper(s) "
+                          "before full text, analysis and writing.",
+               "papers": [p.to_client_dict() for p in corpus]}
+        decision = await approve([p.to_client_dict() for p in corpus], len(reserve))
+    drop = set(decision.get("drop") or [])
+    dropped = [p for p in corpus if p.id in drop]
+    replacements = reserve[:len(dropped)]
+    approved = [p for p in corpus if p.id not in drop] + replacements
+    for i, p in enumerate(approved, start=1):
+        p.id = i
+    short = len(dropped) - len(replacements)
+    message = (f"Corpus approved ({decision['approved_by']})"
+               + (f": dropped {len(dropped)}, replaced {len(replacements)} from the ranked "
+                  "candidates" if dropped else "")
+               + (f" — {short} fewer paper(s), no candidates left" if short else "") + ".")
+    yield {"type": "approval", "approved_by": decision["approved_by"],
+           "approved_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+           "dropped": [_paper_ref(p) for p in dropped],
+           "replacements": [_paper_ref(p) for p in replacements], "message": message}
+    yield approved
+
+
 def _models(quality: str) -> tuple[str, str]:
     """(fast model for queries+mining, premium model for the gap analysis)."""
     premium, economy = model(), economy_model()
@@ -229,8 +268,11 @@ async def run_pipeline(question: str, source_keys: list[str],
                        fulltext_enabled: bool = True,
                        quality: str = "balanced",
                        keywords: list[str] | None = None,
-                       transport: httpx.AsyncBaseTransport | None = None) -> AsyncIterator[dict]:
-    """`transport` is a test seam (httpx.MockTransport); production leaves it None."""
+                       transport: httpx.AsyncBaseTransport | None = None,
+                       approve: Approver | None = None) -> AsyncIterator[dict]:
+    """`transport` is a test seam (httpx.MockTransport); production leaves it None.
+    `approve` pauses the run after screening for the paper approval step
+    (#17); without it the corpus is approved automatically."""
     selected = [(k, *SOURCES[k]) for k in source_keys if k in SOURCES]
     if not selected:
         raise PipelineError("Select at least one literature source.")
@@ -305,9 +347,16 @@ async def run_pipeline(question: str, source_keys: list[str],
             "Try rephrasing the question or providing more specific keywords."
         )
 
-    corpus = rank(accepted, per_source)[:corpus_size]
+    ranked = rank(accepted, per_source)
+    corpus = ranked[:corpus_size]
     for i, p in enumerate(corpus, start=1):
         p.id = i
+    # Before full text and analysis, so no later step ever reads a dropped paper.
+    async for item in _approve_corpus(corpus, ranked[corpus_size:], approve):
+        if isinstance(item, list):
+            corpus = item
+        else:
+            yield item
     yield {"type": "status", "stage": "search", "state": "done",
            "message": f"Found {len(all_papers)} papers → {len(unique)} unique → "
                       f"{len(accepted)} passed relevance screening → analyzing top {len(corpus)}"}
