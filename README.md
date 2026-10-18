@@ -24,7 +24,8 @@ That's it. The first run walks you through a one-time setup; every run after tha
    - 🟢 **Ollama** *(recommended)* — runs entirely on your machine, your research data never leaves your device, no API key needed.
    - 🔵 **Gemini** — a cloud alternative for machines without the hardware to comfortably run a local model. Requires your own [Gemini API key](https://aistudio.google.com/apikey).
 2. If you chose Ollama, ResearchGenie checks whether it's installed and the model is downloaded — and does both automatically where it can be done safely on your operating system.
-3. Your choice is saved locally. You won't be asked again.
+3. **Optional: scholarly access** — a free OpenAlex key, a contact email and a free NCBI key make literature searches faster and more reliable. Each is checked live and can be skipped. There is no Semantic Scholar key; it stays keyless.
+4. Your choices are saved locally. You won't be asked again.
 
 Run `researchgenie config` any time to change your setup.
 
@@ -36,6 +37,10 @@ Answer a few short questions — your research topic, how many papers to include
 - ✍️ **Research Writing** — builds an evidence-grounded outline and draft, citing only the literature it actually found.
 - 🔗 **Citation Verification** — checks every reference against real scholarly databases (Crossref, OpenAlex).
 - 🛡️ **Quality Assessment** — an independent, fully deterministic audit of citation integrity and claim-to-evidence alignment.
+
+After Discovery picks the papers, the run pauses and shows them as a numbered table. Press Enter to approve, or type `drop 2,5` to swap papers for the next-best candidates. If the search finds too few on-topic papers, Discovery tries once more with new queries.
+
+A run that fails part-way does not have to start over: `researchgenie resume <run folder or run id>` picks up from the failed stage (`--from STAGE` to choose one). Earlier output is kept as `final_v1/`, `final_v2/`, ….
 
 ## 🧭 Not sure what to research yet?
 
@@ -133,3 +138,5 @@ See [TILL_NOW.md](TILL_NOW.md) for current progress and [DECISIONS.md](DECISIONS
 ## 🛠️ For developers
 
 This repository *is* the ResearchGenie source — `pip install researchgenie` installs it directly from here. See `DECISIONS.md` for the internal architecture (a four-service pipeline behind one orchestrator, plus an optional Trend & Gap Advisor stage) and `pyproject.toml` for the packaging setup.
+
+`researchgenie-dev "<ticket text>"` (or `--spec ticket.md`) runs the Dev Agent on a small, well-specified ticket: it plans, writes a failing test, then patches until the test passes (at most 3 rounds), in a throwaway git worktree. It never commits, pushes or merges. Review `patch.diff` in the audit folder it prints, then `git apply` it yourself.
