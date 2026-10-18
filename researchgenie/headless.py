@@ -5,6 +5,7 @@
     researchgenie status <run id or folder> [--json]
     researchgenie result <run id or folder> [--json]
     researchgenie resume <run id or folder> [--from STAGE] (--json | --detach)
+    researchgenie doctor <run id or folder> [--yes] [--json]
 
 Never prompts. Progress goes to stderr, the answer to stdout (JSON with
 --json). `run --detach` starts the same command in a background process and
@@ -24,11 +25,12 @@ import subprocess
 import sys
 import typing
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from uuid import uuid4
 
 from pydantic import ValidationError
 from rich.console import Console
+from rich.prompt import Confirm
 
 from orchestrator import doctor
 from orchestrator.pipeline import (
@@ -51,7 +53,7 @@ EXIT_CODES = {"model_unavailable": EXIT_MODEL_UNAVAILABLE,
               "providers_exhausted": EXIT_PROVIDERS_EXHAUSTED,
               "no_relevant_papers": EXIT_NO_RELEVANT_PAPERS}
 
-COMMANDS = ("run", "status", "result")
+COMMANDS = ("run", "status", "result", "doctor")
 # ResearchRequest fields a flag can't set: the clarify outcome is recorded by
 # an interactive surface, never typed in.
 _NOT_FLAGS = {"clarification"}
@@ -107,6 +109,11 @@ def build_parser() -> argparse.ArgumentParser:
     resume.add_argument("run", help="run id or run folder")
     resume.add_argument("--from", dest="from_stage", choices=STAGE_NAMES)
     resume.add_argument("--detach", action="store_true")
+
+    doctor_cmd = commands.add_parser("doctor", help="diagnose a run; apply the fix once confirmed")
+    doctor_cmd.add_argument("run", help="run id or run folder")
+    doctor_cmd.add_argument("--yes", action="store_true",
+                            help="apply the proposed fix without asking (required with --json)")
 
     for sub in commands.choices.values():
         sub.add_argument("--json", action="store_true", help="machine-readable output")
@@ -244,6 +251,53 @@ def _ready() -> bool:
     return _ensure_ready(Console(stderr=True, legacy_windows=False), rg_config.load())
 
 
+def _key_setup(fix_id: str) -> Callable[[], bool]:
+    """The interactive key prompt a key fix runs (the same steps as `researchgenie config`)."""
+    def setup() -> bool:
+        from researchgenie.setup_wizard import run_setup_wizard, setup_scholarly_access
+        console = Console(legacy_windows=False)
+        if fix_id == "gemini_setup":
+            config = run_setup_wizard(console)
+        else:
+            config = rg_config.load()
+            setup_scholarly_access(console, config)
+            rg_config.save(config)
+        rg_config.apply_to_environment(config)
+        return config.setup_complete or fix_id != "gemini_setup"
+    return setup
+
+
+async def _doctor(directory: Path, args: argparse.Namespace) -> int:
+    """Diagnose, ask (or take --yes), apply, resume; the report records each step."""
+    diagnosis = doctor.diagnose(directory, await doctor.system_status())
+    fix = diagnosis["fix"]
+    if not args.json:
+        print(f"Cause: {diagnosis['cause']}")
+        for line in diagnosis["evidence"]:
+            print(f"  {line}")
+        if fix:
+            print(f"Proposed fix: {fix['label']}")
+    if fix is None:
+        applied, outcome = False, "No fix proposed."
+    elif not fix["automatic"]:
+        applied, outcome = False, f"No automatic fix; to do: {fix['label']}"
+    elif not (args.yes or (not args.json and Confirm.ask("Apply this fix?", default=False))):
+        applied, outcome = False, "Not applied: not confirmed" + (" (headless needs --yes)." if args.json else ".")
+    else:
+        problem = await doctor.apply_fix(
+            diagnosis, key_setup=None if args.json else _key_setup(fix["id"]))
+        if problem:
+            applied, outcome = False, problem
+        else:
+            await _drive(doctor.resume_and_record(directory, diagnosis, resume_pipeline))
+            report = json.loads((directory / doctor.REPORT_NAME).read_text(encoding="utf-8"))
+            _print({**report, "report_path": str(directory / doctor.REPORT_NAME)}, args.json)
+            return _exit_code(result_of(directory))
+    path = doctor.write_report(directory, diagnosis, applied=applied, outcome=outcome)
+    _print({**diagnosis, "applied": applied, "outcome": outcome, "report_path": str(path)}, args.json)
+    return _exit_code(result_of(directory))
+
+
 def main(argv: list[str]) -> int:
     try:
         args = build_parser().parse_args(argv)
@@ -287,6 +341,8 @@ def main(argv: list[str]) -> int:
             return EXIT_OK
         return fail(EXIT_NOT_FOUND, f"No run {args.run!r} under {DEFAULT_OUTPUT_ROOT}.")
 
+    if args.command == "doctor":
+        return asyncio.run(_doctor(directory, args))
     if args.command == "status":
         _print(status_of(directory), args.json)
         return EXIT_OK

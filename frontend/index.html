@@ -212,6 +212,7 @@ textarea.lg { font-size: 16px; min-height: 110px; }
 .banner.warn { background: var(--warn-soft); color: var(--warn); }
 .banner.info { background: var(--accent-soft); color: var(--accent); }
 .banner .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.banner .why { display: block; margin-top: 4px; color: var(--ink-2); font-size: var(--fs-xs); overflow-wrap: anywhere; }
 .banner .x { background: none; border: 0; color: inherit; cursor: pointer; padding: 0 2px; font-size: 18px; line-height: 1; }
 .note { padding: 9px 12px; border-radius: var(--r-sm); background: var(--warn-soft); color: var(--warn); font-size: var(--fs-sm); margin-top: var(--sp-2); }
 
@@ -433,7 +434,8 @@ textarea.lg { font-size: 16px; min-height: 110px; }
       <ol class="stages" id="stages"></ol>
       <p class="activity" id="activity" aria-live="polite"></p>
     </div>
-    <div id="runError" class="banner bad" hidden><span class="grow" id="runErrorText"></span><button class="btn sm ghost" type="button" id="resume" hidden>Resume</button><button class="btn sm ghost" type="button" id="reconnect">Reconnect</button></div>
+    <div id="runError" class="banner bad" hidden><span class="grow" id="runErrorText"></span><button class="btn sm ghost" type="button" id="diagnose" hidden>Diagnose &amp; fix</button><button class="btn sm ghost" type="button" id="resume" hidden>Resume</button><button class="btn sm ghost" type="button" id="reconnect">Reconnect</button></div>
+    <div id="doctor" class="banner info" hidden><span class="grow" id="doctorText"></span><button class="btn sm ghost" type="button" id="applyFix" hidden>Apply fix</button></div>
     <p class="rail-foot">Every stage saves its output to disk, so a run can be inspected and audited later. Reloading this page reconnects to a run in progress.</p>
   </aside>
 
@@ -786,7 +788,7 @@ function resetProgress() {
   $("feed").hidden = false; expand("feed"); $("feed").querySelector("[data-collapse]").hidden = true;
   $("log").innerHTML = `<div class="empty">Waiting for the first event…</div>`;
   $("feedCount").textContent = "";
-  $("runError").hidden = true; $("jump").hidden = true;
+  $("runError").hidden = true; $("doctor").hidden = true; $("jump").hidden = true;
   clearInterval(timer);
   $("elapsed").hidden = false; $("elapsedTime").textContent = "0m 00s";
 }
@@ -868,7 +870,7 @@ function follow(id, onResult) {
     } else if (ev.type === "error") {
       ORDER.forEach((k) => { if (st[k].state === "running") setState(k, "failed"); });
       $("runErrorText").textContent = "Run failed: " + ev.message;
-      $("runError").hidden = false; $("reconnect").hidden = true; $("resume").hidden = false;
+      $("runError").hidden = false; $("reconnect").hidden = true; $("resume").hidden = false; $("diagnose").hidden = false;
       $("activity").textContent = "The run stopped. Nothing after the failed stage was produced. Resume picks up from the failed stage.";
       logLine(ev.message, "error", null);
       stopTimer();
@@ -879,7 +881,7 @@ function follow(id, onResult) {
     // Never let EventSource auto-retry: a reconnect replays the whole history.
     source.close(); stopTimer();
     $("runErrorText").textContent = "Lost connection to the live event stream. The run may still be going on the server.";
-    $("runError").hidden = false; $("reconnect").hidden = false; $("resume").hidden = true;
+    $("runError").hidden = false; $("reconnect").hidden = false; $("resume").hidden = true; $("diagnose").hidden = true;
   };
 }
 $("reconnect").onclick = () => { if (!runId) return; resetProgress(); follow(runId, followHandler); };
@@ -914,6 +916,28 @@ $("resume").onclick = async () => {
     $("runError").hidden = true; $("resume").hidden = true;
     resetProgress(); follow(run_id, followHandler);
   } catch (e) { notify(e.message, "bad"); }
+};
+
+// The Doctor (#13): diagnose first; "Apply fix" is the user's confirmation.
+$("diagnose").onclick = async (e) => {
+  if (!runId) return;
+  busy(e.target, true, "Diagnosing…");
+  try {
+    const d = await api(`/research/runs/${encodeURIComponent(runId)}/doctor`, { apply: false });
+    const fix = d.fix, runnable = fix && fix.automatic && !fix.interactive_only;
+    $("doctorText").innerHTML = `<b>${esc(d.cause)}</b>` +
+      (d.evidence.length ? `<span class="why">${d.evidence.map(esc).join("<br>")}</span>` : "") +
+      (fix ? `<span class="why">Fix: ${esc(fix.label)}${runnable ? "" : " This is a step for you; nothing is run here."}</span>` : "");
+    $("applyFix").hidden = !runnable; $("doctor").hidden = false;
+  } catch (err) { notify(err.message, "bad"); } finally { busy(e.target, false); }
+};
+$("applyFix").onclick = async (e) => {
+  busy(e.target, true, "Applying…");
+  try {
+    const out = await api(`/research/runs/${encodeURIComponent(runId)}/doctor`, { apply: true });
+    if (out.resumed) { $("runError").hidden = true; $("doctor").hidden = true; resetProgress(); follow(out.run_id, followHandler); }
+    else { $("doctorText").textContent = out.outcome; $("applyFix").hidden = true; }
+  } catch (err) { notify(err.message, "bad"); } finally { busy(e.target, false); }
 };
 
 function hideAfter(...ids) { ids.forEach((id) => { $(id).hidden = true; delete $(id).dataset.collapsed; }); }
@@ -1084,7 +1108,7 @@ $("startOver").onclick = () => {
   runId = null; shortlist = null; clarifyPending = null; $("clarify").hidden = true;
   history.replaceState(null, "", location.pathname);
   hideAfter("feed", "shortlist", "lockin", "results");
-  $("chatLog").innerHTML = ""; $("runError").hidden = true; $("elapsed").hidden = true;
+  $("chatLog").innerHTML = ""; $("runError").hidden = true; $("doctor").hidden = true; $("elapsed").hidden = true;
   expand("start"); renderRail(true);
   if (wasLive) notify("The previous run keeps going on the server. Its files still land in the outputs folder.", "info");
 };

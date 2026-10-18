@@ -42,6 +42,8 @@ After Discovery picks the papers, the run pauses and shows them as a numbered ta
 
 A run that fails part-way does not have to start over: `researchgenie resume <run folder or run id>` picks up from the failed stage (`--from STAGE` to choose one). Earlier output is kept as `final_v1/`, `final_v2/`, ….
 
+Not sure why a run failed? `researchgenie doctor <run id>` reads the run's event log and checks your system (Ollama, the model, keys, LaTeX). It explains the cause in plain language, quotes the evidence, and proposes one fix: start Ollama, download the model, add a free key, wait for a provider's reset, or resume from a stage. It applies the fix only after you say yes (`--yes` in headless mode) and saves `doctor_report.json` in the run folder. A failed run in the web UI has the same thing as a **Diagnose & fix** button.
+
 Searches, DOI lookups and extracted full text are cached in `~/.researchgenie/cache.sqlite` (searches for 7 days, lookups for 30, full text for good), so a repeat or similar run is faster and spends almost no quota. Add `--no-cache` to any command to fetch everything fresh; `researchgenie cache clear` empties the cache.
 
 ## 🤖 Headless use (scripts and agents)
@@ -54,6 +56,7 @@ researchgenie run -q "..." --detach --json      # prints {"run_id": ...} and ret
 researchgenie status <run id> --json            # stage, state, last event
 researchgenie result <run id> --json            # final files, scores, verification counts, draft status
 researchgenie resume <run id> --json            # headless resume (--from STAGE to choose)
+researchgenie doctor <run id> --yes --json      # diagnose, apply the fix, resume
 ```
 
 `run` takes every research-request field as a flag (`researchgenie run --help` lists them). `--clarify` is `skip` (default) or `auto`; approval is always automatic headless. Progress goes to stderr, the answer to stdout.

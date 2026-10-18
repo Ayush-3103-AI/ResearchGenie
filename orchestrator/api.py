@@ -34,7 +34,7 @@ from fastapi.encoders import jsonable_encoder  # noqa: E402
 from fastapi.responses import FileResponse, StreamingResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from orchestrator import run_registry  # noqa: E402
+from orchestrator import doctor, run_registry  # noqa: E402
 from orchestrator.pipeline import (  # noqa: E402
     FINAL_FILES, PipelineError, find_run_directory, plan_resume, resume_pipeline, run_pipeline,
     run_trend_advisor_stage,
@@ -132,6 +132,46 @@ async def resume_research_run(run_id: str, body: ResumeRequest) -> dict[str, str
         None, run_id,
         lambda _request, run_id: resume_pipeline(directory, body.from_stage, approve=approve))
     return {"run_id": run_id}
+
+
+class DoctorRequest(BaseModel):
+    apply: bool = False  # false: diagnose only; true: the user confirmed the proposed fix
+
+
+@app.post("/research/runs/{run_id}/doctor")
+async def doctor_research_run(run_id: str, body: DoctorRequest) -> dict[str, object]:
+    """The Doctor (#13): diagnoses the run from its event log and the live
+    system status. With apply=true (the web page sends it only after the
+    user confirmed the shown fix) it applies the fix and, when the fix
+    resumes, restarts the run in the background under its own run_id.
+    Either way the diagnosis is saved as the run's doctor_report.json."""
+    state = run_registry.get_run(run_id)
+    if state is not None and state.status in ("running", "awaiting_approval")             and run_id in run_registry._runs:
+        raise HTTPException(status_code=409, detail="This run is still running.")
+    directory = find_run_directory(run_id)
+    if directory is None:
+        raise HTTPException(status_code=404, detail=f"Unknown run_id: {run_id}")
+    diagnosis = doctor.diagnose(directory, await doctor.system_status())
+    fix = diagnosis["fix"]
+    if not body.apply:
+        doctor.write_report(directory, diagnosis, applied=False, outcome="Diagnosed; no fix applied yet.")
+        return {**diagnosis, "applied": False, "resumed": False}
+    problem = await doctor.apply_fix(diagnosis)  # no key prompt here: a key fix is reported
+    if problem is None:  # every automatic fix resumes; check the folder can be resumed now
+        try:
+            plan = plan_resume(directory, doctor.resume_stage(diagnosis))
+        except PipelineError as error:
+            problem = str(error)
+    if problem is not None:
+        doctor.write_report(directory, diagnosis, applied=False, outcome=problem)
+        return {**diagnosis, "applied": False, "resumed": False, "outcome": problem}
+    approve = run_registry.approver(run_id) if plan["request"].approval == "ask" else None
+    doctor.write_report(directory, diagnosis, applied=True, outcome="Fix applied; resume started.")
+    await run_registry.start_run(
+        None, run_id, lambda _request, run_id: doctor.resume_and_record(
+            directory, diagnosis, resume_pipeline, approve=approve))
+    return {**diagnosis, "applied": True, "resumed": True, "run_id": run_id,
+            "outcome": "Fix applied; resume started."}
 
 
 class QuestionCheck(BaseModel):

@@ -1,0 +1,2 @@
+{"type": "progress", "run_id": "r1", "stage": "discovery", "service": "research_discovery", "status": "running", "emoji": "", "title": "Models — queries & mining: qwen3.5:9b; gap analysis: qwen3.5", "message": "Models — queries & mining: qwen3.5:9b; gap analysis: qwen3.5:9b", "details": {"raw_type": "log"}, "timestamp": "2026-10-18T09:00:00+00:00"}
+{"type": "error", "message": "Could not reach the local Ollama server at http://127.0.0.1:11434. Start it with: ollama serve"}
