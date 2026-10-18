@@ -68,6 +68,10 @@ def _trend_advisor_service():
 
 
 DEFAULT_OUTPUT_ROOT = ROOT / "outputs"
+# The files the pipeline writes to <run>/final/: the only ones the API,
+# the headless CLI and the MCP server hand out.
+FINAL_FILES = ("draft.md", "quality_report.md", "validation_report.md",
+               "references.md", "evidence_table.md", "paper.tex", "paper.pdf")
 
 _STAGE_EMOJI = {
     "trend_advisor": "📈",
@@ -201,7 +205,7 @@ def _progress_event(
 
 _PASSED_THROUGH = ("host", "wait_seconds", "remedy", "papers", "reserve", "approved_by",
                    "approved_at", "dropped", "replacements", "round", "reason",
-                   "accepted_before", "accepted_after")
+                   "accepted_before", "accepted_after", "hits")
 
 
 def _adapt_inner_event(run_id: str, stage: str, service: str, inner: dict[str, Any]) -> dict[str, Any]:

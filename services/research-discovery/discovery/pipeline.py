@@ -507,6 +507,8 @@ async def run_pipeline(question: str, source_keys: list[str],
             yield {"type": "status", "stage": "verify", "state": "skipped",
                    "message": "Skipped — no candidates to verify"}
 
+    if (cached := gateway_run.cache_event()) is not None:
+        yield cached  # searches, full text and verification answered from disk (#6)
     yield {"type": "status", "stage": "analyze", "state": "running",
            "message": "Synthesizing the corpus and identifying gaps (this takes a few minutes)…"}
     async for event in analyze_gaps(question, corpus, candidates, verification_papers,

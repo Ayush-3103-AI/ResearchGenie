@@ -46,6 +46,14 @@ class FakeTime:
         await asyncio.sleep(0)
 
 
+@pytest.fixture(autouse=True)
+def _no_cache_reads(monkeypatch):
+    """These tests send the same request again on purpose (pacing, breaker);
+    the response cache (#6) would answer it. Its own tests are in
+    test_response_cache.py."""
+    monkeypatch.setenv("RESEARCHGENIE_NO_CACHE", "1")
+
+
 def _gateway(fake: FakeTime) -> Gateway:
     return Gateway(clock=fake.clock, wall_clock=fake.wall, sleep=fake.sleep,
                    jitter=lambda: 0.5)  # jitter factor 1.0: backoff is exactly base * 2**n

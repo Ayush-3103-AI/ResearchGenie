@@ -19,6 +19,10 @@ transient. The gateway owns four things, all driven by the POLICIES table:
 - circuit breaker: repeated 429/5xx responses within one run, or an OpenAlex
   `not_enough_credits` 429, mark the host exhausted. Later calls fail fast
   with ProviderExhausted and the run continues on the other sources.
+- cache (#6): GETs are answered from shared/utilities/response_cache.py when
+  a fresh entry exists (no token, no quota, even for an exhausted host), and
+  200 responses are stored. Credit exhaustion and the OpenAlex rate-limit
+  headers persist there too, so the next process knows before it starts.
 
 Callers keep passing their own httpx.AsyncClient. Per-run state (breaker
 counts, the event queue for `rate_limited` / `provider_exhausted`) lives in a
@@ -45,6 +49,8 @@ from typing import AsyncIterator, Callable, Coroutine
 from urllib.parse import quote, quote_plus, urlsplit
 
 import httpx
+
+from shared.utilities import response_cache
 
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 TOOL_NAME = "lit-gap"  # NCBI's required `tool` parameter, kept from the old sources
@@ -186,6 +192,7 @@ class Run:
         self.events: asyncio.Queue[dict] = asyncio.Queue()
         self.failures: dict[str, int] = {}
         self.tripped: dict[str, ProviderExhausted] = {}
+        self.cache_hits = 0
         self._reported: set[str] = set()
 
     def task(self, coro: Coroutine) -> asyncio.Task:
@@ -225,6 +232,14 @@ class Run:
 
     def emit(self, event: dict) -> None:
         self.events.put_nowait(event)
+
+    def cache_event(self) -> dict | None:
+        """The `cache_hit` event summing this run's hits so far, or None."""
+        if not self.cache_hits:
+            return None
+        return {"type": "cache_hit", "hits": self.cache_hits,
+                "message": f"{self.cache_hits} scholarly request(s) answered from the local "
+                           "cache (no network call, no quota)."}
 
     def available(self, url: str) -> bool:
         """False once this run's breaker tripped for the URL's host, or its
@@ -337,10 +352,18 @@ class Gateway:
         self._buckets_lock = threading.Lock()
         # Semaphores belong to one event loop, so keep a set per loop.
         self._slots: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
-        # ponytail: in-process only; #6 persists this in the cache DB so the
-        # next run knows before it starts.
+        # Loaded from the cache DB on first use (#6), written on every change.
         self._exhausted_until: dict[str, float] = {}
+        self._state_loaded = False
         self._tripped_at: dict[str, float] = {}  # wall clock of the last breaker trip, any run
+
+    def _exhausted(self) -> dict[str, float]:
+        """Credit exhaustion by host, including what an earlier process saved."""
+        if not self._state_loaded:
+            self._state_loaded = True
+            for host, until in response_cache.exhausted_until().items():
+                self._exhausted_until.setdefault(host, until)
+        return self._exhausted_until
 
     def _bucket(self, host: str, policy: HostPolicy) -> _Bucket:
         # Keyed and keyless traffic pace separately, so adding a key mid-process takes effect.
@@ -366,7 +389,7 @@ class Gateway:
                 access = "identified"
             else:
                 access = "anonymous"
-            until = self._exhausted_until.get(host)
+            until = self._exhausted().get(host)
             if until is not None and until > now:
                 health, reason = "degraded", "daily budget used up"
             elif now - self._tripped_at.get(host, -DEGRADED_SECONDS) < DEGRADED_SECONDS:
@@ -390,10 +413,22 @@ class Gateway:
         """GET through the gateway. Returns the final response — a successful
         one, a non-retryable error (the caller's raise_for_status reports it),
         or the last 429/5xx once retries are used up. Raises ProviderExhausted
-        when the host is skipped."""
+        when the host is skipped. A fresh cached answer is returned without
+        a request (#6)."""
         host, policy = host_of(url), policy_for(url)
+        cache_key = redact(response_cache.key(url, params))
+        cached = response_cache.get(cache_key, self._wall_clock())
+        if cached is not None:
+            count_cache_hit()
+            status, content_type, body = cached
+            return httpx.Response(status, headers={"content-type": content_type}, content=body,
+                                  request=httpx.Request("GET", redact(url)))
         async with self._slot(host, policy):
-            return await self._send(http, url, params, headers, timeout, stream=False)
+            resp = await self._send(http, url, params, headers, timeout, stream=False)
+        if resp.status_code == 200:
+            response_cache.put(cache_key, 200, resp.headers.get("content-type", ""),
+                               resp.content, response_cache.ttl_for(url), self._wall_clock())
+        return resp
 
     @asynccontextmanager
     async def stream(self, http: httpx.AsyncClient, url: str, *, params: dict | None = None,
@@ -433,6 +468,11 @@ class Gateway:
             if shown != str(request.url):
                 # raise_for_status and error reprs echo resp.request.url.
                 resp.request = httpx.Request("GET", shown)
+            if policy.credits_marker:  # a credit-metered host: keep its last balance (#6)
+                rate = {k.lower(): v for k, v in resp.headers.items()
+                        if k.lower().startswith("x-ratelimit")}
+                if rate:
+                    response_cache.save_balance(host, {**rate, "seen_at": self._wall_clock()})
             if resp.status_code not in RETRY_STATUSES:
                 run.failures[host] = 0
                 return resp
@@ -445,7 +485,8 @@ class Gateway:
                 now = self._wall_clock()
                 wait = _header_wait(resp, now)
                 until = now + wait if wait is not None else _next_utc_midnight(now)
-                self._exhausted_until[host] = until
+                self._exhausted()[host] = until
+                response_cache.save_exhausted(host, until)
                 raise run.exhausted(self._credits_error(host, policy, until))
 
             run.failures[host] = run.failures.get(host, 0) + 1
@@ -474,12 +515,12 @@ class Gateway:
 
     def exhausted(self, host: str) -> bool:
         """The host's credit budget is used up and has not reset yet."""
-        return self._exhausted_until.get(host, 0.0) > self._wall_clock()
+        return self._exhausted().get(host, 0.0) > self._wall_clock()
 
     def _check_available(self, run: Run, host: str, policy: HostPolicy) -> None:
         if host in run.tripped:
             raise run.exhausted(run.tripped[host])
-        until = self._exhausted_until.get(host)
+        until = self._exhausted().get(host)
         if until is not None:
             if until > self._wall_clock():
                 raise run.exhausted(self._credits_error(host, policy, until))
@@ -500,6 +541,14 @@ async def get(http: httpx.AsyncClient, url: str, *, params: dict | None = None,
               headers: dict | None = None, timeout: float | None = None) -> httpx.Response:
     """GET `url` through the process-wide gateway (see Gateway.get)."""
     return await _gateway.get(http, url, params=params, headers=headers, timeout=timeout)
+
+
+def count_cache_hit() -> None:
+    """Counts a cache hit served outside Gateway.get (extracted full text) on
+    the current run, if there is one."""
+    run = _current_run.get()
+    if run is not None:
+        run.cache_hits += 1
 
 
 def provider_status() -> list[dict]:

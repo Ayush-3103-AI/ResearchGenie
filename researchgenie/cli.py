@@ -8,6 +8,10 @@
     researchgenie resume <run folder or id> [--from STAGE]
                                               Resume a failed run from the
                                               failed stage (or STAGE).
+    researchgenie cache clear                 Empty the scholarly response cache.
+    researchgenie run|status|result ...       Headless, JSON-speaking commands
+                                              (researchgenie/headless.py).
+    --no-cache (any command)                  Fetch scholarly answers fresh.
 
 Everything downstream of "ready" reuses the existing, already-tested
 pipeline (orchestrator.pipeline.run_pipeline) unchanged — this module is
@@ -18,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -48,7 +53,7 @@ from researchgenie.tui import (  # noqa: E402
     render_provider_status, render_summary,
 )
 from shared.contracts.pipeline_contract import Clarification, ResearchRequest  # noqa: E402
-from shared.utilities import library, scholarly_gateway  # noqa: E402
+from shared.utilities import library, response_cache, scholarly_gateway  # noqa: E402
 
 _TARGET_FORMATS = ["IEEE", "Springer"]
 
@@ -330,6 +335,17 @@ def main() -> None:
     console = Console(legacy_windows=False)
     args = sys.argv[1:]
 
+    from researchgenie import headless  # imports this module's helpers
+    if headless.is_headless(args):
+        sys.exit(headless.main(args))
+    if "--no-cache" in args:
+        args.remove("--no-cache")
+        os.environ["RESEARCHGENIE_NO_CACHE"] = "1"
+    if args[:2] == ["cache", "clear"]:
+        count = response_cache.clear()
+        console.print(f"[{OK}]Removed {count} cached response(s) from "
+                      f"{escape(str(response_cache.cache_path()))}[/{OK}]")
+        return
     if args[:1] == ["library"]:
         _library_command(console, args[1:])
         return

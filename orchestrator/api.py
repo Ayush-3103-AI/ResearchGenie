@@ -36,7 +36,7 @@ from pydantic import BaseModel  # noqa: E402
 
 from orchestrator import run_registry  # noqa: E402
 from orchestrator.pipeline import (  # noqa: E402
-    PipelineError, find_run_directory, plan_resume, resume_pipeline, run_pipeline,
+    FINAL_FILES, PipelineError, find_run_directory, plan_resume, resume_pipeline, run_pipeline,
     run_trend_advisor_stage,
 )
 from orchestrator.pipeline import discovery_service  # noqa: E402 — for the clarify step
@@ -47,9 +47,6 @@ from shared.contracts.trend_contract import TrendAdvisorRequest, TrendAdvisorRes
 from shared.utilities import library, llm_provider, scholarly_gateway  # noqa: E402
 
 FRONTEND = ROOT / "frontend" / "index.html"
-# Only the files the pipeline itself writes to <run>/final/ are downloadable.
-FINAL_FILES = {"draft.md", "quality_report.md", "validation_report.md",
-               "references.md", "evidence_table.md", "paper.tex", "paper.pdf"}
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):

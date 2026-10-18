@@ -42,6 +42,33 @@ After Discovery picks the papers, the run pauses and shows them as a numbered ta
 
 A run that fails part-way does not have to start over: `researchgenie resume <run folder or run id>` picks up from the failed stage (`--from STAGE` to choose one). Earlier output is kept as `final_v1/`, `final_v2/`, ….
 
+Searches, DOI lookups and extracted full text are cached in `~/.researchgenie/cache.sqlite` (searches for 7 days, lookups for 30, full text for good), so a repeat or similar run is faster and spends almost no quota. Add `--no-cache` to any command to fetch everything fresh; `researchgenie cache clear` empties the cache.
+
+## 🤖 Headless use (scripts and agents)
+
+The same pipeline runs without prompts, with JSON output and exit codes a script can act on:
+
+```
+researchgenie run -q "How does sleep affect memory consolidation?" --format APA --length short --json
+researchgenie run -q "..." --detach --json      # prints {"run_id": ...} and returns at once
+researchgenie status <run id> --json            # stage, state, last event
+researchgenie result <run id> --json            # final files, scores, verification counts, draft status
+researchgenie resume <run id> --json            # headless resume (--from STAGE to choose)
+```
+
+`run` takes every research-request field as a flag (`researchgenie run --help` lists them). `--clarify` is `skip` (default) or `auto`; approval is always automatic headless. Progress goes to stderr, the answer to stdout.
+
+| Exit code | Meaning |
+|---|---|
+| 0 | Success (for `result`: the run completed) |
+| 1 | Failed, no more specific cause |
+| 2 | Bad arguments |
+| 3 | The model is unavailable (Ollama not running, model missing, Gemini key problem) |
+| 4 | Every literature source was exhausted or failed |
+| 5 | No relevant paper was found |
+| 6 | No run with that id or folder |
+| 7 | `result` asked of a run that is still going |
+
 ## 🧭 Not sure what to research yet?
 
 ```

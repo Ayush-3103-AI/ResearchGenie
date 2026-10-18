@@ -79,6 +79,8 @@ async def run_trend_advisor(
     ))
     async for event in gateway_run.relay(velocity):
         yield event
+    if (cached := gateway_run.cache_event()) is not None:
+        yield cached
     try:
         candidates = velocity.result()
     except VelocityUnavailable as error:

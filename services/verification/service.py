@@ -149,6 +149,8 @@ async def run_verification(request: VerificationRequest, *,
     checking = gateway_run.task(check_all())
     async for event in gateway_run.relay(checking):
         yield event
+    if (cached := gateway_run.cache_event()) is not None:
+        yield cached
 
     verified: list[ReferenceCheck] = []
     invalid: list[ReferenceCheck] = []
