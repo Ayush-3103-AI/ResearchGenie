@@ -2,12 +2,19 @@
 diff for a human to approve.
 
 A LangGraph state graph reads a ticket, plans the files to change and the
-acceptance test, writes the test, runs it (it must fail), then writes a
-patch and runs the test again, feeding pytest's output back each time, for
-at most MAX_ROUNDS patch rounds. It works in a detached git worktree, writes
-only to the paths in its plan (the patch may not touch its own test), runs
-pytest in a subprocess with a timeout, calls the model only through
+acceptance test, writes the test, runs it (it must fail), then patches and
+runs the tests again, feeding pytest's output back each time, for at most
+MAX_ROUNDS patch rounds. It works in a detached git worktree, writes only to
+the paths in its plan (the patch may not touch its own test), runs pytest in
+a subprocess with a timeout, calls the model only through
 shared/utilities/llm_provider.py, and logs every step to an audit trail.
+
+A patch is a list of search/replace edits, never a retyped file: a small
+local model copying a whole file back inside a JSON string corrupts lines
+it never meant to touch (a regex's backslashes, most often). Each round the
+model also sees the diff of its own changes so far and any edit that didn't
+apply, and the existing tests that use the changed files run beside the
+acceptance test, so a broken unrelated line can't come back green.
 
 It never commits, pushes or merges: every git call goes through `git()`,
 which only allows the read-only and worktree commands listed below. The
@@ -22,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -40,6 +48,10 @@ MAX_ROUNDS = 3
 TEST_TIMEOUT = 300.0     # seconds per pytest run
 OUTPUT_TAIL = 4000       # characters of pytest output fed back to the model
 REPO_LISTING = 400       # files of the repo shown to the planner
+MAX_TOKENS = 16000       # a patch round's answer; thinking is off so all of it is the answer
+GUARD_TESTS = 10         # existing tests that use the changed files, run beside the new one
+DIFF_TAIL = 6000         # characters of "your changes so far" shown each round
+_PATH_CHARS = re.compile(r"[\w.\-/]+")  # what a repo path may contain; a garbled one is refused
 # git subcommands the agent may run; anything else (commit, push, merge,
 # rebase, reset, checkout, ...) is refused before a process starts.
 GIT_ALLOWED = {"worktree": {"add", "remove", "prune"}, "add": {"--intent-to-add"},
@@ -86,26 +98,42 @@ FILES_SCHEMA = {
         "required": ["path", "content"]}}},
     "required": ["files"],
 }
+EDITS_SCHEMA = {
+    "type": "object",
+    "properties": {"edits": {"type": "array", "items": {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string"},
+            "old": {"type": "string", "description": "Text copied exactly from the current file, "
+                    "with enough lines to occur only once. Empty only to create a new file."},
+            "new": {"type": "string", "description": "The text that replaces it."}},
+        "required": ["path", "old", "new"]}}},
+    "required": ["edits"],
+}
 SYSTEM = ("You are a careful software engineer working test-first on a small, well-specified "
           "ticket. Change as little as possible. Answer only with the requested JSON. "
-          "File contents are complete files, not diffs.")
+          "Change existing files with search/replace edits: copy only the lines you change, plus "
+          "enough context to be unique, exactly as they are in the file. Never retype a whole file.")
 
 
 class State(TypedDict, total=False):
     ticket: str
     worktree: str
     plan: dict
+    guards: list[str]   # existing tests that use the changed files and passed before the patch
     passed: bool
     output: str
+    problems: list[str]  # last round's edits that were not applied, and why
     rounds: int
     status: str
 
 
 def _safe_path(path: str) -> str | None:
     """The normalized repo-relative POSIX path, or None if it escapes the repo."""
-    pure = PurePosixPath(path.replace("\\", "/"))
-    if pure.is_absolute() or ".." in pure.parts or not pure.parts or ":" in pure.parts[0]:
-        return None
+    pure = PurePosixPath(path.strip().replace("\\", "/"))
+    if pure.is_absolute() or ".." in pure.parts or not pure.parts or ":" in pure.parts[0] \
+            or not _PATH_CHARS.fullmatch(str(pure)):
+        return None  # escapes the repo, or garbled (quotes, braces, spaces from broken JSON)
     return str(pure)
 
 
@@ -123,7 +151,8 @@ class _Run:
             audit.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
     async def ask(self, user: str, schema: dict) -> dict:
-        comp = await self.complete(system=SYSTEM, user=user, schema=schema, max_tokens=8000)
+        comp = await self.complete(system=SYSTEM, user=user, schema=schema,
+                                   max_tokens=MAX_TOKENS, think=False)
         if comp.stop != "end" or not comp.text.strip():
             raise DevAgentError(f"The model gave no usable answer (stop: {comp.stop}).")
         try:
@@ -146,16 +175,84 @@ class _Run:
                 continue
             target = worktree / path
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(item.get("content", ""), encoding="utf-8")
+            target.write_text(item.get("content", ""), encoding="utf-8", newline="")
             written.append(path)
         self.log("write", during=step, paths=written)
         return written
 
-    async def pytest(self, worktree: Path, test_file: str) -> tuple[bool, str]:
-        # ponytail: runs only the acceptance test; the human's review and CI run the full suite.
+    def edit(self, worktree: Path, allowed: set[str], edits: list[dict], step: str) -> list[str]:
+        """Applies each search/replace edit to a path in `allowed` whose `old`
+        text occurs exactly once (an empty `old` creates a new file). Returns
+        the problems with the edits that were not applied, for the next round.
+        The file keeps its own line endings."""
+        # ponytail: exact match only; add a whitespace-tolerant match if models keep missing on indentation.
+        applied, problems = [], []
+        for item in edits:
+            path = _safe_path(str(item.get("path", "")))
+            if path is None or path not in allowed:
+                self.log("write_refused", path=item.get("path"), during=step, allowed=sorted(allowed))
+                continue
+            old = str(item.get("old", "")).replace("\r\n", "\n")
+            new = str(item.get("new", "")).replace("\r\n", "\n")
+            target = worktree / path
+            if not old:
+                if target.exists():
+                    problems.append(f"{path}: `old` was empty but the file exists; copy the lines "
+                                    "to replace into `old`.")
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(new, encoding="utf-8", newline="")
+                applied.append(path)
+                continue
+            raw = target.read_bytes().decode("utf-8") if target.is_file() else ""
+            text = raw.replace("\r\n", "\n")
+            found = text.count(old)
+            if found != 1:
+                problems.append(f"{path}: this `old` text occurs {found} time(s) in the file, not "
+                                "once, so the edit was not applied. Copy it exactly from the "
+                                f"current file, with more lines if needed:\n{old[:400]}")
+                continue
+            text = text.replace(old, new, 1)
+            target.write_bytes((text.replace("\n", "\r\n") if "\r\n" in raw else text).encode("utf-8"))
+            applied.append(path)
+        self.log("edit", during=step, paths=applied, problems=problems)
+        return problems
+
+    def guard_tests(self, worktree: Path, plan: dict) -> list[str]:
+        """Existing test files that mention a changed module by name."""
+        stems = {PurePosixPath(f).stem for f in plan["files"] if f.endswith(".py")} - {"__init__"}
+        found = []
+        for path in git(worktree, "ls-files").splitlines():
+            name = PurePosixPath(path).name
+            if path == plan["test_file"] or not (name.startswith("test_") and name.endswith(".py")):
+                continue
+            text = (worktree / path).read_text(encoding="utf-8", errors="replace")
+            if any(re.search(rf"\b{re.escape(stem)}\b", text) for stem in stems):
+                found.append(path)
+        return found[:GUARD_TESTS]
+
+    def example_test(self, worktree: Path, test_file: str) -> str:
+        """The setup and imports of an existing test beside the new one, so the
+        model copies this repo's real import pattern (hyphenated service folders
+        are put on sys.path, not imported as packages)."""
+        folder = str(PurePosixPath(test_file).parent)
+        siblings = sorted(p for p in git(worktree, "ls-files").splitlines()
+                          if str(PurePosixPath(p).parent) == folder and p != test_file
+                          and PurePosixPath(p).name.startswith("test_") and p.endswith(".py"))
+        if not siblings:
+            return ""
+        head = []
+        for line in (worktree / siblings[0]).read_text(encoding="utf-8").splitlines()[:60]:
+            if line.startswith(("def ", "class ", "@")):
+                break
+            head.append(line)
+        return f"--- {siblings[0]} (its imports and setup) ---\n" + "\n".join(head).strip()
+
+    async def pytest(self, worktree: Path, *test_files: str) -> tuple[bool, str]:
+        # ponytail: the acceptance test and its guards only; the human's review and CI run the full suite.
         # -B: no .pyc between rounds. A same-size patch written within the same second
         # as the last one would otherwise run the previous round's cached bytecode.
-        command = [sys.executable, "-B", "-m", "pytest", "-q", "-p", "no:cacheprovider", test_file]
+        command = [sys.executable, "-B", "-m", "pytest", "-q", "-p", "no:cacheprovider", *test_files]
         try:
             done = await asyncio.to_thread(subprocess.run, command, cwd=worktree,
                                            capture_output=True, text=True,
@@ -174,26 +271,51 @@ def _build_graph(run: _Run):
                              + "\n\nPlan the smallest change: the files to create or edit, "
                                "and one new pytest file that fails until the ticket is done.",
                              PLAN_SCHEMA)
-        files = [_safe_path(f) for f in plan.get("files", [])]
-        test_file = _safe_path(plan.get("test_file", ""))
-        if not files or None in files or test_file is None or test_file in files:
+        test_file = _safe_path(str(plan.get("test_file", "")))
+        files = [_safe_path(str(f)) for f in plan.get("files", [])]
+        files = list(dict.fromkeys(f for f in files if f != test_file))  # the test is written separately
+        if not files or None in files or test_file is None:
             raise DevAgentError(f"The plan is unusable: {plan}")
+        if (worktree / test_file).exists():
+            # Writing it would replace an existing test file with the new acceptance test.
+            raise DevAgentError(f"The plan's test file {test_file} already exists; the acceptance "
+                                "test must be a new file.")
         plan = {**plan, "files": files, "test_file": test_file}
         run.log("plan", plan=plan)
-        return {"plan": plan, "rounds": 0}
+        return {"plan": plan, "rounds": 0, "problems": []}
 
     async def write_test(state: State) -> dict:
         worktree, plan = Path(state["worktree"]), state["plan"]
         sources = "\n\n".join(f"--- {f} ---\n{run.read(worktree, f)}" for f in plan["files"])
-        reply = await run.ask(f"Ticket:\n{state['ticket']}\n\nPlan: {plan['summary']}\n\n"
-                              f"Current files:\n{sources}\n\nWrite the acceptance test "
-                              f"{plan['test_file']}. It must fail now and pass once the ticket "
-                              "is done.", FILES_SCHEMA)
+        example = run.example_test(worktree, plan["test_file"])
+        reply = await run.ask(f"Ticket:\n{state['ticket']}\n\nPlan: {plan.get('summary', '')}\n\n"
+                              f"Current files:\n{sources}\n\n"
+                              + (f"An existing test in the same folder; import the code the same "
+                                 f"way:\n{example}\n\n" if example else "")
+                              + f"Write the acceptance test {plan['test_file']}, as a complete new "
+                              "file. It must fail now and pass once the ticket is done.", FILES_SCHEMA)
         run.write(worktree, {plan["test_file"]}, reply.get("files", []), "write_test")
         return {}
 
+    async def red(state: State) -> dict:
+        """The acceptance test must fail now. The guards are kept only if they
+        pass now: an existing test that already fails can't vouch for the patch."""
+        worktree = Path(state["worktree"])
+        passed, output = await run.pytest(worktree, state["plan"]["test_file"])
+        run.log("tests", round=0, passed=passed, output=output)
+        guards = []
+        for guard in run.guard_tests(worktree, state["plan"]):
+            ok, _ = await run.pytest(worktree, guard)
+            if ok:
+                guards.append(guard)
+            else:
+                run.log("guard_dropped", test=guard)
+        run.log("guards", tests=guards)
+        return {"passed": passed, "output": output, "guards": guards}
+
     async def run_tests(state: State) -> dict:
-        passed, output = await run.pytest(Path(state["worktree"]), state["plan"]["test_file"])
+        passed, output = await run.pytest(Path(state["worktree"]), state["plan"]["test_file"],
+                                          *state.get("guards", []))
         run.log("tests", round=state["rounds"], passed=passed, output=output)
         return {"passed": passed, "output": output}
 
@@ -201,13 +323,23 @@ def _build_graph(run: _Run):
         worktree, plan = Path(state["worktree"]), state["plan"]
         n = state["rounds"] + 1
         sources = "\n\n".join(f"--- {f} ---\n{run.read(worktree, f)}" for f in plan["files"])
+        diff = git(worktree, "diff", "--", *plan["files"])[-DIFF_TAIL:]
+        guards = state.get("guards", [])
+        problems = "\n".join(f"- {p}" for p in state.get("problems", []))
         reply = await run.ask(
             f"Patch round {n} of {MAX_ROUNDS}.\n\nTicket:\n{state['ticket']}\n\n"
             f"Acceptance test ({plan['test_file']}, do not change it):\n"
-            f"{run.read(worktree, plan['test_file'])}\n\nFiles you may change:\n{sources}\n\n"
-            f"Last pytest output:\n{state['output']}\n\nReturn the changed files.", FILES_SCHEMA)
-        run.write(worktree, set(plan["files"]), reply.get("files", []), f"patch_{n}")
-        return {"rounds": n}
+            f"{run.read(worktree, plan['test_file'])}\n\n"
+            f"Files you may change (current content):\n{sources}\n\n"
+            f"Your changes so far (git diff against the original):\n{diff or '(none yet)'}\n"
+            "Undo any change in it that the ticket doesn't need.\n\n"
+            + (f"Edits from the last round that were not applied:\n{problems}\n\n" if problems else "")
+            + "Last pytest output (the acceptance test"
+            + (f", and existing tests that use these files and must keep passing: {', '.join(guards)}"
+               if guards else "") + f"):\n{state['output']}\n\n"
+            "Return search/replace edits.", EDITS_SCHEMA)
+        problems = run.edit(worktree, set(plan["files"]), reply.get("edits", []), f"patch_{n}")
+        return {"rounds": n, "problems": problems}
 
     def after_red(state: State) -> str:
         return "finish" if state["passed"] else "patch"  # a test that passes first proves nothing
@@ -218,7 +350,7 @@ def _build_graph(run: _Run):
     graph = StateGraph(State)
     graph.add_node("plan", plan)
     graph.add_node("write_test", write_test)
-    graph.add_node("red", run_tests)
+    graph.add_node("red", red)
     graph.add_node("patch", patch)
     graph.add_node("tests", run_tests)
     graph.add_edge(START, "plan")
@@ -234,9 +366,11 @@ def _report(state: State, diff: str, audit_dir: Path) -> dict:
     rounds, passed = state.get("rounds", 0), state.get("passed", False)
     if passed and rounds:
         status = "green"
-        summary = (f"The acceptance test is green after {rounds} patch round(s); the rest of "
-                   "the suite was not run. Review patch.diff, run the full tests, then "
-                   "`git apply` it.")
+        guards = state.get("guards", [])
+        summary = (f"The acceptance test is green after {rounds} patch round(s)"
+                   + (f", and {len(guards)} existing test file(s) that use the changed files still "
+                      "pass" if guards else "") + "; the rest of the suite was not run. Review "
+                   "patch.diff, run the full tests, then `git apply` it.")
     elif passed:
         status = "not_red"
         summary = ("The new test passed before any patch, so it does not test the ticket. "

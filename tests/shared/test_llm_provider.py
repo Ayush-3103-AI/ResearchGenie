@@ -260,3 +260,42 @@ def test_health_check_for_gemini_checks_api_key_configured(monkeypatch):
 
     monkeypatch.setenv("GEMINI_API_KEY", "fake-key")
     assert asyncio.run(llm_provider.health_check()) is True
+
+
+def test_gemini_thinking_is_off_only_when_asked(monkeypatch):
+    """Gemini 2.5 counts thinking against maxOutputTokens; think=False must
+    reach it as a zero thinking budget, or a long answer gets cut off."""
+    import asyncio
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    sent = []
+
+    class _FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{"text": "{}"}]}, "finishReason": "STOP"}]}
+
+        def raise_for_status(self):
+            pass
+
+    class _FakeAsyncClient:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, url, **kwargs):
+            sent.append(kwargs["json"]["generationConfig"])
+            return _FakeResponse()
+
+    monkeypatch.setattr(llm_provider.httpx, "AsyncClient", _FakeAsyncClient)
+    monkeypatch.setattr(llm_provider, "AI_PROVIDER", "gemini")
+    for think in (False, True):
+        asyncio.run(llm_provider.complete_json(system="s", user="u", schema={"type": "object"},
+                                               think=think))
+    assert sent[0]["thinkingConfig"] == {"thinkingBudget": 0}
+    assert "thinkingConfig" not in sent[1]

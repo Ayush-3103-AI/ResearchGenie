@@ -50,7 +50,7 @@ The web UI has the same flow. A failed run shows **Diagnose & fix**, then **Appl
 researchgenie-dev --spec docs/tickets/26-apa-7.md
 ```
 
-The Dev Agent writes a failing test, then patches until it passes (at most 3 rounds), in a throwaway worktree. When it finishes:
+The Dev Agent writes a failing test, then patches until it passes (at most 3 rounds), in a throwaway worktree. A patch is a set of search/replace edits, not a retyped file. Each round runs the new test plus the existing tests that use `citation_formatter.py` (4 of them), so green means nothing else broke. When it finishes:
 
 1. Open the audit folder it prints. Check that the saved run shows the test red first, then green.
 2. Review `patch.diff`. Don't edit it by hand: the ticket asks for no hand edits.
@@ -58,6 +58,8 @@ The Dev Agent writes a failing test, then patches until it passes (at most 3 rou
 4. Fill in the **Result** line at the end of `docs/tickets/26-apa-7.md`: which model produced the patch, and whether it went red → green with no hand edits.
 
 If the local model can't finish in 3 rounds, run it again with Gemini (`researchgenie config`, choose Gemini) and record that in the ticket file.
+
+If a run fails, the audit folder's `audit.jsonl` shows why. `edit` entries list any edit that didn't apply, and why. `guards` lists the existing tests that ran beside the new one. Each `tests` entry has the pytest output for that round.
 
 ## Then
 

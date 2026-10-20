@@ -109,7 +109,7 @@ def _gemini_schema(schema: dict) -> dict:
 
 async def _stream_json_gemini(*, system: str, user: str, schema: dict,
                               model: str | None, max_tokens: int,
-                              temperature: float) -> AsyncIterator[dict]:
+                              temperature: float, think: bool = True) -> AsyncIterator[dict]:
     """Gemini's generateContent endpoint does not stream partial structured
     JSON usefully, so this yields the complete response as a single delta,
     then "done" — callers already only look at the final Completion for
@@ -131,6 +131,10 @@ async def _stream_json_gemini(*, system: str, user: str, schema: dict,
             "responseSchema": _gemini_schema(schema),
         },
     }
+    if not think:
+        # Gemini 2.5 thinks by default and counts it against maxOutputTokens,
+        # so a long answer (the Dev Agent's patch) could be cut off by it.
+        payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
     comp = Completion()
     try:
         async with httpx.AsyncClient(timeout=120) as http:
@@ -193,11 +197,11 @@ async def stream_json(*, system: str, user: str, schema: dict,
     against max_tokens, so a simple/deterministic task should pass think=False —
     otherwise a tight max_tokens budget can be exhausted by reasoning before any
     actual JSON content is produced, silently yielding an empty (refusal-looking)
-    completion. Ignored by the Gemini provider (no equivalent setting)."""
+    completion. For Gemini, think=False sets a zero thinking budget."""
     if AI_PROVIDER == "gemini":
         async for event in _stream_json_gemini(
             system=system, user=user, schema=schema, model=model,
-            max_tokens=max_tokens, temperature=temperature,
+            max_tokens=max_tokens, temperature=temperature, think=think,
         ):
             yield event
         return
