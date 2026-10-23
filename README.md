@@ -60,7 +60,9 @@ researchgenie doctor <run id> --yes --json      # diagnose, apply the fix, resum
 researchgenie library search "<query>" --json   # past runs and papers in your library
 ```
 
-`run` takes every research-request field as a flag (`researchgenie run --help` lists them). `--clarify` is `skip` (default) or `auto`; approval is always automatic headless. Progress goes to stderr, the answer to stdout.
+`run` takes every research-request field as a flag (`researchgenie run --help` lists them). `--clarify` is `skip` (default) or `auto`; approval is always automatic headless. `--run-id` chooses the run id (letters, digits, hyphens), so `status` works while a waiting `run` is still going. Progress goes to stderr, the answer to stdout.
+
+To research from chat (Claude Code, or OpenClaw on WhatsApp, Telegram, Slack, Discord), install the agent skill in `skills/researchgenie/`. Setup and publishing are in [docs/agent-skill.md](docs/agent-skill.md).
 
 | Exit code | Meaning |
 |---|---|
