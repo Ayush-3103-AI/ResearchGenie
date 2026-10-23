@@ -68,9 +68,10 @@ def test_run_verification_classifies_verified_invalid_and_unverifiable(monkeypat
     request = VerificationRequest(writing=writing)
 
     def responder(req: httpx.Request) -> httpx.Response:
-        if "10.1111/real" in str(req.url):
-            return httpx.Response(200)
-        return httpx.Response(404)
+        # One DOI-filter request per provider (#7); each lists the works it has.
+        if req.url.host == "api.crossref.org":
+            return httpx.Response(200, json={"message": {"items": [{"DOI": "10.1111/REAL"}]}})
+        return httpx.Response(200, json={"results": []})
 
     class _FakeAsyncClient:
         def __init__(self, *a, **k):

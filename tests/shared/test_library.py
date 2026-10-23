@@ -4,6 +4,7 @@ and fixture run folders."""
 
 import asyncio
 import json
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -97,6 +98,49 @@ def test_a_later_run_without_an_excerpt_keeps_the_stored_one(tmp_path):
     paper = library.search_papers("fasting")[0]
     assert paper["discussion_excerpt"] == _PAPER["discussion_excerpt"]
     assert paper["abstract"] == _PAPER["abstract"]
+
+
+def test_stored_excerpts_by_doi_and_an_older_library_file_gains_the_new_columns(tmp_path):
+    old = sqlite3.connect(library.library_path())  # the schema before #19: no authors, citations
+    old.execute("CREATE TABLE papers (doi TEXT PRIMARY KEY, title TEXT, abstract TEXT, year INTEGER, "
+                "venue TEXT, discussion_excerpt TEXT, fulltext_status TEXT, first_seen TEXT)")
+    old.execute("INSERT INTO papers VALUES ('10.2/old', 'Old', NULL, 2010, NULL, 'Old excerpt.', "
+                "'excerpt', '2020-01-01')")
+    old.commit()
+    old.close()
+
+    library.import_run(_run_folder(tmp_path, "run1", "Fasting?",
+                                   [{**_PAPER, "authors": ["A. One"], "citations": 7}]))
+    assert library.stored_excerpts(["10.2/OLD", "https://doi.org/10.1/abc", "10.3/none"]) == {
+        "10.2/OLD": "Old excerpt.", "https://doi.org/10.1/abc": _PAPER["discussion_excerpt"]}
+    paper = library.search_papers("fasting")[0]
+    assert json.loads(paper["authors"]) == ["A. One"] and paper["citations"] == 7
+
+
+def test_discovery_memory_and_time_reach_metadata(tmp_path, monkeypatch):
+    """A later script compares two runs' Discovery from metadata.json (#19)."""
+    seen = []
+
+    async def discovery(request):
+        seen.append(request.memory)
+        yield {"type": "memory_hit", "count": 3, "reused_excerpts": 2, "seeded_papers": 1,
+               "message": "Research library: reused 2 stored excerpt(s)."}
+        yield {"type": "result", "result": fakes._fake_discovery_result()}
+    monkeypatch.setattr(orchestrator_pipeline.discovery_service, "run_discovery", discovery)
+
+    events = _run(ResearchRequest(research_question="Remote work?", corpus_size=6), tmp_path)
+    run_directory = Path(events[-1]["result"].run_directory)
+    logged = [json.loads(line) for line in
+              (run_directory / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+    [hit] = [e for e in logged if e.get("status") == "memory_hit"]
+    assert hit["stage"] == "discovery" and hit["details"] == {
+        "raw_type": "memory_hit", "count": 3, "reused_excerpts": 2, "seeded_papers": 1}
+    metadata = json.loads((run_directory / "metadata.json").read_text())
+    assert metadata["memory"] == {"enabled": True, "count": 3, "reused_excerpts": 2, "seeded_papers": 1}
+    assert isinstance(metadata["timings"]["discovery_seconds"], float)
+
+    _run(ResearchRequest(research_question="Remote work?", corpus_size=6, memory=False), tmp_path)
+    assert seen == [True, False]
 
 
 def test_query_syntax_in_the_question_is_never_passed_to_match():

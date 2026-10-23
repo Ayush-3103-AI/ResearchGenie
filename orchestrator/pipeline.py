@@ -17,6 +17,7 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from orchestrator import decision_brief  # noqa: E402
 from shared.contracts.discovery_contract import DiscoveryRequest, DiscoveryResult  # noqa: E402
 from shared.contracts.pipeline_contract import (  # noqa: E402
     Clarification, PipelineResult, ResearchRequest, StageTimings,
@@ -27,7 +28,7 @@ from shared.contracts.trend_contract import (  # noqa: E402
 )
 from shared.contracts.verification_contract import VerificationRequest, VerificationResult  # noqa: E402
 from shared.contracts.writing_contract import WritingRequest, WritingResult  # noqa: E402
-from shared.utilities import evidence_table, latex_export, library  # noqa: E402
+from shared.utilities import evidence_table, latex_export, library, scholarly_gateway  # noqa: E402
 from shared.utilities.scholarly_gateway import redact  # noqa: E402
 from shared.utilities.run_paths import slugify  # noqa: E402
 
@@ -68,6 +69,10 @@ def _trend_advisor_service():
 
 
 DEFAULT_OUTPUT_ROOT = ROOT / "outputs"
+# The files the pipeline writes to <run>/final/: the only ones the API,
+# the headless CLI and the MCP server hand out.
+FINAL_FILES = ("draft.md", "quality_report.md", "validation_report.md",
+               "references.md", "evidence_table.md", "decision_brief.md", "paper.tex", "paper.pdf")
 
 _STAGE_EMOJI = {
     "trend_advisor": "📈",
@@ -201,7 +206,8 @@ def _progress_event(
 
 _PASSED_THROUGH = ("host", "wait_seconds", "remedy", "papers", "reserve", "approved_by",
                    "approved_at", "dropped", "replacements", "round", "reason",
-                   "accepted_before", "accepted_after")
+                   "accepted_before", "accepted_after", "hits", "mode", "plan",
+                   "count", "reused_excerpts", "seeded_papers")
 
 
 def _adapt_inner_event(run_id: str, stage: str, service: str, inner: dict[str, Any]) -> dict[str, Any]:
@@ -213,6 +219,8 @@ def _adapt_inner_event(run_id: str, stage: str, service: str, inner: dict[str, A
         status = state
     elif inner_type in ("source_error", "provider_exhausted"):
         status = "warning"
+    elif inner_type == "memory_hit":  # read by the decision brief (#12, #19)
+        status = "memory_hit"
     else:
         status = "running"
     message = inner.get("message") or inner_type
@@ -236,6 +244,35 @@ def _library_warning(run_id: str, stage: str, error: Exception) -> dict[str, Any
                 "the run continues without it.",
         details={"raw_type": "library_error"},
     )
+
+
+REDUCED_PLAN = ("verification searches use Crossref instead of OpenAlex. Add your free OpenAlex "
+                "key (`researchgenie config`, takes 1 minute) for the full plan.")
+
+
+def check_budget(request: ResearchRequest) -> dict[str, Any]:
+    """The budget check before Discovery (#7): the run's planned OpenAlex
+    credits — the first search and the re-plan's, one verification search
+    per candidate, one DOI filter for Citation Verification — against the
+    balance known from earlier requests. The plan is "reduced" when the user
+    chose it, or (budget_plan "auto") when the balance can't cover the run;
+    verification_searches is how many OpenAlex verification searches it allows."""
+    cost = scholarly_gateway.CREDIT_COSTS
+    candidates = discovery_service.MAX_CANDIDATES_FOR_ANALYSIS
+    fixed = 2 * cost["search"] + cost["list"]
+    estimated = fixed + candidates * cost["search"]
+    balance = scholarly_gateway.balance()
+    short = balance is not None and balance < estimated
+    plan = "reduced" if request.budget_plan == "reduced" or (
+        short and request.budget_plan == "auto") else "full"
+    reason = ("No OpenAlex balance is known yet; the first request reports it." if balance is None
+              else f"OpenAlex has {balance} credit(s) left today; this run may use up to {estimated}.")
+    if request.budget_plan != "auto":
+        reason += f" The {plan} plan was chosen."
+    allowed = (0 if plan == "reduced" else candidates if balance is None
+               else max(0, min(candidates, (balance - fixed) // cost["search"])))
+    return {"estimated_credits": estimated, "balance": balance, "plan": plan, "reason": reason,
+            "verification_searches": allowed}
 
 
 def _write_json(path: Path, data: dict[str, Any]) -> None:
@@ -282,11 +319,23 @@ async def run_pipeline(
     try:
         async for event in _run_stages(request, output_root=output_root, run_id=run_id, **stage_options):
             append(event)
+            if event["type"] == "result":  # logged first: the brief reads the log
+                _write_brief(log_path.parent)
             yield event
     except Exception as error:
         # Same message run_registry reports for a failed run.
         append({"type": "error", "message": str(error) or type(error).__name__})
+        _write_brief(log_path.parent)
         raise
+
+
+def _write_brief(run_directory: Path) -> None:
+    """The decision brief (#12), at the end of every run, completed or failed.
+    Never fails the run, nor hides the error that failed it."""
+    try:
+        decision_brief.write_brief(run_directory)
+    except Exception:  # noqa: BLE001 — the run's own output and error come first
+        pass
 
 
 async def _run_stages(
@@ -328,6 +377,7 @@ async def _run_stages(
                 and advisor_dir != run_directory and not run_directory.exists()):
             advisor_dir.rename(run_directory)
     run_directory.mkdir(parents=True, exist_ok=True)
+    credits_used = scholarly_gateway.count_credits()  # this run's, into metadata.json (#7)
     loaded: dict[str, Any] = resume[1] if resume else {}
     if resume:
         kept = _keep_final_as_version(run_directory)
@@ -384,16 +434,29 @@ async def _run_stages(
         )
 
     # ---- Stage 1: Research Discovery ----
+    # Discovery's memory_hit event (#19), kept for metadata.json.
+    memory_hits = {"count": 0, "reused_excerpts": 0, "seeded_papers": 0}
     t0 = time.monotonic()
     if "discovery" in loaded:
         discovery_result = loaded["discovery"]
         yield _loaded_event(run_id, "discovery", "research_discovery")
     else:
+        budget = check_budget(request)
+        yield _progress_event(
+            run_id=run_id, stage="discovery", service="scholarly_gateway",
+            status="warning" if budget["plan"] == "reduced" else "running",
+            title="Budget check",
+            message=f"Budget check: {budget['reason']} "
+                    + (f"Running the reduced plan: {REDUCED_PLAN}" if budget["plan"] == "reduced"
+                       else "Running the full plan."),
+            details={"raw_type": "budget_check", **budget},
+        )
         discovery_request = DiscoveryRequest(
             research_question=request.research_question, domain=request.domain,
             year_range=request.year_range, preferred_databases=request.preferred_databases,
             keywords=request.keywords, excluded_topics=request.excluded_topics,
-            corpus_size=request.corpus_size,
+            corpus_size=request.corpus_size, memory=request.memory,
+            verification_searches=budget["verification_searches"],
         )
         discovery_result = None
         async for event in discovery_service.run_discovery(
@@ -401,6 +464,8 @@ async def _run_stages(
             if event["type"] == "result":
                 discovery_result = event["result"]
             else:
+                if event["type"] == "memory_hit":
+                    memory_hits = {k: event[k] for k in memory_hits}
                 yield _adapt_inner_event(run_id, "discovery", "research_discovery", event)
         if discovery_result is None:
             raise PipelineError("Research Discovery Service produced no result.")
@@ -552,7 +617,13 @@ async def _run_stages(
         "evidence_limited_sections": draft_meta.evidence_limited_sections,
         "broken_sections": draft_meta.broken_sections,
         "duplicate_sections": draft_meta.duplicate_sections,
+        # Credits each scholarly provider charged this run (#7); stages
+        # loaded on a resume spent nothing this time.
+        "credits_used": credits_used,
     }
+    if "discovery" not in loaded:
+        # With timings.discovery_seconds, what a related second run saved (#19).
+        metadata["memory"] = {"enabled": request.memory, **memory_hits}
     if resume:
         metadata["resumed_from_stage"] = resume[0]
         metadata["final_versions"] = _final_versions(run_directory)

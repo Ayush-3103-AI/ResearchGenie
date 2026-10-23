@@ -1,0 +1,17 @@
+{
+  "name": "researchgenie",
+  "description": "ResearchGenie's agent skill: research from chat, with a message when the run finishes",
+  "owner": {
+    "name": "Ayush-3103-AI"
+  },
+  "plugins": [
+    {
+      "name": "researchgenie",
+      "source": "./skills/researchgenie",
+      "description": "Start ResearchGenie runs from Claude Code and get the decision brief and draft paths when they finish",
+      "version": "0.1.0",
+      "license": "MIT",
+      "homepage": "https://github.com/Ayush-3103-AI/ResearchGenie"
+    }
+  ]
+}

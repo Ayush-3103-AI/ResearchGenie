@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo Readiness Plan</title>
+<style>
+:root{--bg:#fbfaf7;--card:#fff;--ink:#1d1d1b;--mute:#5d5b55;--line:#e3e0d8;--shade:#f3f1ea;--acc:#3d4fa3;--accbg:#e9ecf8;
+--ok:#1f7a4d;--okbg:#e6f3ec;--part:#9a6100;--partbg:#fbf0dc;--no:#a23a2a;--nobg:#f8e6e2}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161614;--card:#1f1f1c;--ink:#ecebe6;--mute:#a7a59d;--line:#34332e;--shade:#26251f;--acc:#9eabf0;--accbg:#232a47;
+--ok:#6fcf9b;--okbg:#1d3328;--part:#e9b65c;--partbg:#3a2e17;--no:#ef8f7f;--nobg:#3d211c}}
+:root[data-theme="dark"]{--bg:#161614;--card:#1f1f1c;--ink:#ecebe6;--mute:#a7a59d;--line:#34332e;--shade:#26251f;--acc:#9eabf0;--accbg:#232a47;
+--ok:#6fcf9b;--okbg:#1d3328;--part:#e9b65c;--partbg:#3a2e17;--no:#ef8f7f;--nobg:#3d211c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1000px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:25px;margin:0 0 6px}h2{font-size:20px;margin:44px 0 12px}h3{font-size:17px;margin:0}h4{font-size:14px;margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute)}
+.sub{color:var(--mute);margin:0 0 20px}
+code{font:13px/1.4 ui-monospace,Consolas,monospace;background:var(--shade);padding:1px 4px;border-radius:4px;word-break:break-word}
+pre{font:12.5px/1.5 ui-monospace,Consolas,monospace;background:var(--shade);padding:10px 12px;border-radius:6px;overflow-x:auto;margin:6px 0}
+table{width:100%;border-collapse:collapse;background:var(--card)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--shade);font-weight:600}
+.wrap{overflow-x:auto}
+.ws{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:22px 0;padding:16px 18px;break-inside:avoid}
+.ws-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.chip{font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap;color:var(--acc);background:var(--accbg)}
+.s{color:var(--ok);background:var(--okbg)}.m{color:var(--part);background:var(--partbg)}.l{color:var(--no);background:var(--nobg)}
+.why{border-left:3px solid var(--acc);padding:4px 12px;margin:8px 0;background:var(--accbg);border-radius:0 6px 6px 0}
+ul,ol{margin:4px 0;padding-left:22px}li{margin:2px 0}
+.risk{font-size:14px;color:var(--mute)}
+.callout{background:var(--partbg);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:14px 0}
+.ok{background:var(--okbg);border-color:var(--line)}
+td.n{white-space:nowrap;font-weight:600}
+</style>
+</head>
+<body>
+<main>
+<h1>ResearchGenie: Demo Readiness Plan</h1>
+<p class="sub">How we take every lab week from "built" to "shown working", and get the product ready for the final review with the professor and other stakeholders. Grounded in the repo as of 23 Oct 2026: <code>main</code> has R1 and R2 (PRs #29, #30), and <code>r3/integration</code> has R3 (not merged). It follows on from <a href="gap-implementation-plan.html">gap-implementation-plan.html</a> (18 Oct) and updates <a href="lab-worklet-weekly-draft.html">lab-worklet-weekly-draft.html</a> (23 Oct).</p>
+
+<div class="callout"><b>Update, 23 Oct: the review is Wed 28 Oct.</b> All the code work (R4: #7, #12, #19; R5: #21), the final sheet, the runbook, the deck and the hosted-demo recipe are built on <code>review/integration</code>. Everything that needs a real model now runs in one command on the GPU laptop: <code>python scripts/live_pass.py --push</code> (2–3 hours). Run it by Sun 25 Oct, merge on Mon 26, and rehearse on Tue 27. The day-by-day schedule in section 7 is superseded by that.</div>
+
+<h2>1. Where we are (18 Oct sheet → today → target)</h2>
+<div class="wrap"><table>
+<tr><th>Week</th><th>Lab</th><th>18 Oct sheet</th><th>Today (23 Oct)</th><th>What is left to reach "complete"</th><th>Tickets</th></tr>
+<tr><td class="n">1</td><td>Agent vs Chatbot</td><td>Implemented</td><td><span class="chip s">Implemented</span> + clarify, re-plan</td><td>Show the clarify → re-plan loop live in the demo</td><td>—</td></tr>
+<tr><td class="n">2</td><td>Tool-Using Agent</td><td>Implemented (no native tool calling)</td><td><span class="chip m">Spike pending</span></td><td>Run the tool-calling spike on qwen3.5:9b and record the valid/sensible counts</td><td>#16</td></tr>
+<tr><td class="n">3</td><td>Skill Creation</td><td>Implemented</td><td><span class="chip s">Implemented</span> + headless CLI</td><td>One skill folder that loads in both Claude Code and OpenClaw</td><td>#21</td></tr>
+<tr><td class="n">4</td><td>Memory &amp; Retrieval</td><td>Partial</td><td><span class="chip s">Implemented</span>: library + cache</td><td>Discovery reads the library, and the speed-up on a related run is measured</td><td>#19</td></tr>
+<tr><td class="n">5</td><td>MCP Connector</td><td>Partial, "no real MCP server"</td><td><span class="chip s">Implemented</span>: read-only MCP server</td><td>Merge R3; demo the server from Claude Desktop or the MCP Inspector</td><td>#20</td></tr>
+<tr><td class="n">6</td><td>OpenClaw Runtime</td><td>Custom runtime</td><td><span class="chip m">Custom runtime</span></td><td>Run a research job from a chat app through OpenClaw, with a message when it finishes</td><td>#21</td></tr>
+<tr><td class="n">7</td><td>Agentic Node Graph</td><td>Implemented</td><td><span class="chip s">Implemented</span> + Dev Agent graph</td><td>Nothing more; show the graph diagram in the demo</td><td>—</td></tr>
+<tr><td class="n">8</td><td>Parallel Swarm</td><td>Implemented (fake model only)</td><td><span class="chip m">Real model pending</span></td><td>Gap-mining swarm on the real model, with gap statements and fan-out time recorded</td><td>#27</td></tr>
+<tr><td class="n">9</td><td>Deep Research Agent</td><td>Implemented (no evidence table)</td><td><span class="chip s">Implemented</span> + evidence table</td><td>D-039 length effect measured on 3 fresh runs; decision brief on every run</td><td>#27, #12</td></tr>
+<tr><td class="n">10</td><td>Cloud Ops Agent</td><td>Partial, "no Docker, no CI"</td><td><span class="chip m">Live demo pending</span>: CI, container, Doctor built</td><td>Doctor recovers a run after Ollama is stopped; budget check; hosted URL on Gemini</td><td>#13, #7, #23, #24</td></tr>
+<tr><td class="n">11</td><td>Agentic SDLC Factory</td><td>Process only</td><td><span class="chip m">Demo run pending</span>: Dev Agent built</td><td>Dev Agent delivers APA red → green with no hand edits; the patch is merged</td><td>#26</td></tr>
+<tr><td class="n">12</td><td>Safety &amp; Governance</td><td>No rollback</td><td><span class="chip s">Implemented</span>: rollback, approval, governance doc</td><td>Merge R3 (governance doc); the decision brief gives one next action</td><td>#22, #12</td></tr>
+<tr><td class="n">13</td><td>Discipline-Specific</td><td>Partial (model half unshown)</td><td><span class="chip m">Partial</span></td><td>One advisor run per field on the real model, with gap flags, then the live hand-off to the pipeline</td><td>#27</td></tr>
+<tr><td class="n">14</td><td>Capstone Studio</td><td>Implemented</td><td><span class="chip m">Nearly complete</span></td><td>R3–R5 merged, a hosted URL, PyPI, a demo runbook, final sheet</td><td>#24, #28, this plan</td></tr>
+</table></div>
+
+<h2>2. What "demo-ready" means (exit criteria)</h2>
+<p>We say we are ready only when every box below has evidence in the repo. A statement in a sheet with no evidence does not count.</p>
+<ol>
+<li><b>All code on <code>main</code>.</b> R3, R4 and R5 are merged through PRs, CI is green, and the full <code>pytest</code> count is recorded.</li>
+<li><b>Every week of the sheet says "Implemented".</b> Each row links to a file, a test and a real-run artifact. The 18 Oct "Partial", "Process only" and "No rollback" labels are gone.</li>
+<li><b>Real-model evidence is committed:</b> the spike numbers (#16), the Doctor recovery (#13), the Dev Agent APA run (#26), advisor gap statements (#27), 3 fresh full runs (#27) and one Gemini run (#24).</li>
+<li><b>Three ways to see it work:</b> (a) live on the GPU laptop, (b) a hosted URL on Gemini, (c) a recorded video, used only if (a) and (b) both fail on the day.</li>
+<li><b>Stakeholder pack:</b> the final lab sheet with a novelty line for each week, a 12-minute demo runbook, golden run folders and a short deck.</li>
+</ol>
+
+<h2>3. Who can do what (machine constraint)</h2>
+<div class="wrap"><table>
+<tr><th>Owner</th><th>Has</th><th>Does</th></tr>
+<tr><td><b>Dev laptop</b></td><td>Python venv, Docker, gcloud CLI. No Ollama model, no GPU.</td><td>All deterministic code: R4 (#7, #19, #12), R5 skill files (#21), the frontend panels, docs, the final sheet, CI, the container image build (#23 cloud half)</td></tr>
+<tr><td><b>GPU laptop</b></td><td>Ollama + <code>qwen3.5:9b</code> on the RTX 4060 (8 GB)</td><td>Every check that needs a real model: #16, #13, #26, #27, #23 local profile, the golden runs, the recorded video, live demo on the day</td></tr>
+<tr><td><b>Account holder</b></td><td>Gemini key, cloud billing, PyPI/TestPyPI tokens, an OpenClaw install with a chat app</td><td>#24 hosted demo, #28 release, #21 chat demo recording</td></tr>
+</table></div>
+<p class="risk">The GPU laptop is the critical path. Book it for Days 1–3 and Day 8–9 before anything else.</p>
+
+<h2>4. Phases</h2>
+
+<section class="ws">
+<div class="ws-head"><h3>Phase 1 — Close R3 with the three live checks</h3><span class="chip l">Days 1–3</span><span class="chip">GPU laptop</span><span class="chip">Weeks 2 · 10 · 11 · 5 · 12</span></div>
+<div class="why"><b>Why first:</b> R3 is built and tested but blocked from <code>main</code> by three checks that need a real model (<a href="r3-live-checks.md">r3-live-checks.md</a>). Every later phase stacks on R3, and three weeks of the sheet move to "Implemented" when it lands.</div>
+<h4>Do</h4>
+<ol>
+<li><b>Spike (#16):</b> <code>python scripts/spike_tool_calling.py --json spike.json</code>. Paste the summary (e.g. <code>9/12 valid, 8/12 sensible</code>) on #16 and commit <code>spike.json</code> under <code>docs/evidence/</code>. Keep the model step on only if it is at least 8/12 valid. The domain fallback covers the other cases.</li>
+<li><b>Doctor demo (#13):</b> start a <code>--length short</code> run, stop Ollama during Writing, run <code>researchgenie doctor &lt;run_id&gt;</code>, and confirm. Record the screen. Commit <code>doctor_report.json</code> (its outcome must read "Fix applied; the resumed run completed.") and a GIF. Do it once in the web UI too (<b>Diagnose &amp; fix</b> → <b>Apply fix</b>).</li>
+<li><b>Dev Agent APA (#26):</b> <code>researchgenie-dev --spec docs/tickets/26-apa-7.md</code>. Check that the audit shows red, then green. Apply <code>patch.diff</code> with no hand edits, run the full suite and commit it. Fill in the Result line in the ticket. If qwen fails in 3 rounds, rerun on Gemini and say so in the ticket.</li>
+<li><b>Container, local profile (#23):</b> <code>docker compose --profile local up</code>, pull the model, and check that <code>/system</code> reports <code>model_ready</code>. Then close #23.</li>
+<li>Open the PR <code>r3/integration → main</code>, merge it once CI is green, and close #6, #10, #13, #16, #20, #22, #26.</li>
+</ol>
+<h4>Done when</h4>
+<ul><li>R3 is on <code>main</code>. <code>docs/evidence/</code> has the spike JSON, the Doctor report and recording, and the Dev Agent audit summary. Weeks 2, 5, 11 and 12 are "Implemented" with links to that evidence.</li></ul>
+<p class="risk">Risk: qwen 9B tool calling may score low. That is fine: report the measured number honestly and show the fallback working. An honest number earns more marks than a claim with no number.</p>
+</section>
+
+<section class="ws">
+<div class="ws-head"><h3>Phase 2 — R4: budget check, library reads, decision brief</h3><span class="chip m">Days 1–6</span><span class="chip">Dev laptop (in parallel with Phase 1)</span><span class="chip">Weeks 4 · 9 · 10 · 12</span></div>
+<div class="why"><b>Why now:</b> none of R4 needs a model. Every check in it is deterministic, so it can be built on the dev laptop while the GPU laptop does Phase 1. Branch <code>r4/integration</code> off <code>r3/integration</code> now, not off <code>main</code>, and rebase it once R3 merges.</div>
+<h4>Build, in this order</h4>
+<ol>
+<li><b>#7 Budget check.</b> The gateway estimates OpenAlex credits from the planned searches (search = 10, filter = 1, entity = 0) and emits <code>budget_check</code> before Discovery. If the balance is short, it offers "add key" or "reduced plan" (headless runs take the reduced plan and say so). DOI lookups use OR-filters of up to 100 DOIs. Test: N DOIs make <code>ceil(N/100)</code> requests. <i>Week 10: the agent prevents a failure, it does not only recover from one.</i></li>
+<li><b>#19 Discovery reads the library.</b> Reuse stored Discussion excerpts by DOI, and emit <code>memory_hit</code>. Seed matching past papers into the candidate pool <b>before</b> the relevance gate, so memory can never get past the safety screen (test: an off-topic seeded paper is rejected). <code>--no-memory</code> restores today's behaviour. <i>Week 4: retrieval is now used by a later run.</i></li>
+<li><b>#12 Decision brief.</b> <code>final/decision_brief.md</code> is built from QA, verification counts, draft status, broken sections, gateway events and memory hits by a rule table, with no LLM call (asserted). It has exactly one recommended next action. Show it on the CLI completion screen, in <code>result --json</code>, and as a new panel in the web results view. <b>Keep the Ayudh theme tokens and the current layout. Add the panel only.</b></li>
+</ol>
+<h4>Done when</h4>
+<ul><li>Each acceptance box on #7, #19 and #12 is ticked by a test. The PR <code>r4/integration → main</code> is merged after R3.</li>
+<li>On the GPU laptop (Day 8): two related runs back to back, with the second run's Discovery time and <code>memory_hit</code> count recorded in <code>analytics_and_results.md</code>.</li></ul>
+</section>
+
+<section class="ws">
+<div class="ws-head"><h3>Phase 3 — R5: one skill for Claude Code and OpenClaw</h3><span class="chip m">Days 6–9</span><span class="chip">Dev laptop + account holder</span><span class="chip">Weeks 3 · 6</span></div>
+<div class="why"><b>Why:</b> this is the only thing between Week 6 and "Implemented", and it makes Week 3 a real skill that two runtimes share. It depends on the headless CLI (#10), the Doctor (#13) and the decision brief (#12), so it comes after Phase 2.</div>
+<h4>Build</h4>
+<ol>
+<li><code>skills/researchgenie/SKILL.md</code> follows the Agent Skills spec: name, description, and OpenClaw <code>requires</code> gating (binary <code>researchgenie</code>, optional <code>OPENALEX_API_KEY</code> / contact email). Use relative paths only.</li>
+<li>Instructions call only fixed command lines that can be allowlisted: <code>researchgenie status --json</code>, <code>run … --json</code> (detached, timeout ≥ 30 min), <code>result</code>, <code>resume</code>, <code>doctor</code>. No inline code and no pipe-to-shell.</li>
+<li>When a run finishes, the reply holds the decision brief plus paths to <code>draft.md</code>, <code>paper.pdf</code> and the evidence table.</li>
+</ol>
+<h4>Done when</h4>
+<ul><li>The skill passes the reference validator and loads in Claude Code and in OpenClaw. A recorded demo shows a question sent from Telegram/WhatsApp, a background run, and a finish message. "How is my run going?" returns the status.</li>
+<li>Install and publish steps are documented. The act of publishing is left to a human.</li></ul>
+<p class="risk">Fallback if OpenClaw cannot be set up in time: demo the same skill in Claude Code, and say on the sheet that OpenClaw loading is verified but the chat-app recording is pending. Do not claim the recording.</p>
+</section>
+
+<section class="ws">
+<div class="ws-head"><h3>Phase 4 — Live verification and cloud</h3><span class="chip m">Days 8–11</span><span class="chip">GPU laptop + account holder</span><span class="chip">Weeks 8 · 9 · 10 · 13 · 14</span></div>
+<h4>Do</h4>
+<ol>
+<li><b>#27 Advisor on the real model:</b> run <code>scripts/smoke_test_trend_advisor.py</code> for CS/AI/ML, ECE and Mechanical at least. Record the gap statements, the fan-out time and the output folder. Then chain one pick into the full pipeline under one run id (D-040). This closes Weeks 8 and 13.</li>
+<li><b>#27 D-039 length effect:</b> 3 fresh full runs against the 3,691-word baseline. Put the measured mean word count and <code>draft_status</code> in <code>analytics_and_results.md</code>, even if the number is worse.</li>
+<li><b>#24 Hosted demo:</b> deploy the <code>cloud</code> compose profile on one CPU VM, with the Gemini key held only in the environment. Do one full Gemini run and commit its folder to <code>docs/research-papers/</code>. Update the "Gemini never observed" line in <code>TILL_NOW.md</code>.</li>
+<li><b>#28 PyPI (optional, cut first):</b> publish to TestPyPI, do a fresh-venv install with <code>--help</code> for all four entry points, then publish to PyPI.</li>
+<li>Record the full pytest count and update <code>TILL_NOW.md</code>'s open-claims list, failures included.</li>
+</ol>
+</section>
+
+<section class="ws">
+<div class="ws-head"><h3>Phase 5 — Stakeholder pack and rehearsal</h3><span class="chip s">Days 10–12</span><span class="chip">Whole team</span><span class="chip">Week 14 + all</span></div>
+<h4>Produce</h4>
+<ol>
+<li><b>Final lab sheet</b> <code>docs/lab-worklet-final.html</code>: the 14 rows of the weekly draft, each with status, code path, test, real-run evidence link and a <b>Novelty</b> line (from section 5 below). Fill in the team names and USNs, and leave the marks columns blank.</li>
+<li><b>Demo runbook</b> <code>docs/demo-runbook.md</code>: the 12-minute run of show in section 6, with the exact commands, the pre-pulled model, and which golden run to open if a live step stalls.</li>
+<li><b>Golden runs:</b> 3 complete run folders (one per topic) plus 1 advisor run with gap flags, committed under <code>docs/research-papers/</code>. Each has the draft, PDF, evidence table, decision brief, QA and verification reports.</li>
+<li><b>Fallback video</b> (≤ 6 min) of the whole run of show, recorded on Day 11.</li>
+<li><b>Deck</b> (8–10 slides): problem → architecture diagram (4 stages + Stage 0 + Doctor + Dev Agent) → the 14-week map → novelty → measured results → limits we still have.</li>
+<li><b>README:</b> add a "Try it" section (hosted URL, <code>pip install</code>, compose) and a capabilities table that links to the evidence.</li>
+</ol>
+<h4>Rehearse</h4>
+<ul><li>Day 11: a full dry run on the GPU laptop from a cold boot, timed. Day 12: a second dry run with one injected failure (stop Ollama) to rehearse the Doctor live.</li></ul>
+</section>
+
+<h2>5. Novelty: what we claim, and the evidence for each claim</h2>
+<p>Each line says what ResearchGenie does that a plain LLM writer or chatbot does not. Every claim must point to a test or a real run. If the evidence is not in the repo by Day 12, the claim leaves the sheet.</p>
+<div class="wrap"><table>
+<tr><th>Week</th><th>Novelty claim</th><th>Evidence</th></tr>
+<tr><td class="n">1</td><td>The agent asks a clarifying question only when the question is vague, and re-plans the search only when the corpus is too thin. Both triggers are deterministic, not the model's mood.</td><td>test_clarify.py, test_discovery_replan.py, live demo</td></tr>
+<tr><td class="n">2</td><td>The model picks the databases, but each tool call is checked against the domain (for example, no PubMed for mechanical engineering), with a fallback. All calls go through one gateway that knows each host's credits and pacing.</td><td>spike.json (#16), test_scholarly_gateway.py</td></tr>
+<tr><td class="n">3</td><td>One skill folder runs in two agent runtimes because the skill only calls a fixed, allowlistable headless CLI.</td><td>skills/researchgenie/, validator output, recording</td></tr>
+<tr><td class="n">4</td><td>Memory makes later runs faster but cannot get past safety: seeded past papers still go through the relevance gate.</td><td>test (off-topic seed rejected), measured second-run time</td></tr>
+<tr><td class="n">5</td><td>A read-only MCP server exposes runs, the library and a DOI checker that classifies a reference and never repairs it, with path-traversal refusals.</td><td>test_mcp_server.py, MCP Inspector demo</td></tr>
+<tr><td class="n">6</td><td>A durable per-run event ledger lets a run be watched from a terminal, a browser or a chat app, and it survives a server restart.</td><td>events.jsonl, test_api.py, chat recording</td></tr>
+<tr><td class="n">7</td><td>Two cooperating graphs: a 9-node checkpointed writing graph, and a Dev Agent graph that improves the product itself.</td><td>writing/graph.py, dev_agent/</td></tr>
+<tr><td class="n">8</td><td>The gap-mining swarm keeps a gap only when several independent papers raise it (a recurrence threshold). A barrier test proves the workers really run in parallel.</td><td>test_trend_gap_mining.py, real advisor run</td></tr>
+<tr><td class="n">9</td><td>Every claim in the draft traces to a row of an evidence table: paper → evidence point → section → DOI → verification status. Future-work claims are checked against a fresh search.</td><td>evidence_table in each golden run</td></tr>
+<tr><td class="n">10</td><td>A self-healing ops agent: a rule-table diagnosis with quoted evidence, a human confirmation, then a resume from the failed stage. A budget check stops a run before it can fail on credits.</td><td>doctor_report.json, recording, test_doctor.py</td></tr>
+<tr><td class="n">11</td><td>The Dev Agent shipped a real product feature (APA 7): the test fails first, the fixes are search/replace edits, existing tests run as guards, and it works in a throwaway worktree. It never commits; a human applies the diff.</td><td>audit folder, merged APA commit</td></tr>
+<tr><td class="n">12</td><td>Rollback through versioned finals (<code>final_v1/</code>, <code>final_v2/</code>). QA is deterministic and independent of the model that wrote the draft. Each run ends with exactly one recommended next action.</td><td>test_resume.py, GOVERNANCE.md, decision_brief.md</td></tr>
+<tr><td class="n">13</td><td>Topic ranking for each engineering field comes from real OpenAlex publication counts, not the model's opinion. The search adapts its sources to the field.</td><td>advisor runs in 6 fields, real gap flags</td></tr>
+<tr><td class="n">14</td><td>The whole system runs on a local 9B model on an 8 GB laptop GPU, with no cloud cost or data leaving the machine, and switches to Gemini with one setting.</td><td>golden runs, hosted URL</td></tr>
+</table></div>
+
+<h2>6. Demo run of show (12 minutes)</h2>
+<div class="wrap"><table>
+<tr><th>Min</th><th>Show</th><th>Weeks</th></tr>
+<tr><td class="n">0–1</td><td>The problem and the architecture slide</td><td>14</td></tr>
+<tr><td class="n">1–3</td><td>Web UI: pick a field → the advisor ranks topics with real counts and gap flags → lock in a topic</td><td>13, 8</td></tr>
+<tr><td class="n">3–5</td><td>Start the run from a vague question → clarify → live stage tracker and event log → paper approval gate</td><td>1, 2, 6, 12</td></tr>
+<tr><td class="n">5–6</td><td>Stop Ollama → the run fails → <b>Diagnose &amp; fix</b> → it resumes</td><td>10, 12</td></tr>
+<tr><td class="n">6–8</td><td>Open a golden run: draft, PDF, evidence table, verification report, QA score, decision brief</td><td>9, 12, 7</td></tr>
+<tr><td class="n">8–9</td><td>Claude Desktop through MCP: "search my library", "verify this DOI"</td><td>5, 4</td></tr>
+<tr><td class="n">9–10</td><td>Chat app → OpenClaw skill → finish message (recorded clip)</td><td>3, 6</td></tr>
+<tr><td class="n">10–11</td><td>Dev Agent APA audit: red → green → merged commit</td><td>11</td></tr>
+<tr><td class="n">11–12</td><td>Measured results, honest limits, the hosted URL for stakeholders to try</td><td>14</td></tr>
+</table></div>
+<p class="risk">The live run started at minute 3 finishes in the background (about 15 min). Show its finished folder in the Q&amp;A, or open the golden run.</p>
+
+<h2>7. Schedule</h2>
+<div class="wrap"><table>
+<tr><th>Day</th><th>Date</th><th>GPU laptop</th><th>Dev laptop</th><th>Account holder</th></tr>
+<tr><td class="n">1</td><td>Sat 24 Oct</td><td>Spike #16, container local #23</td><td>Branch r4/integration; #7 budget check</td><td>Get a Gemini key and a cloud VM</td></tr>
+<tr><td class="n">2</td><td>Sun 25 Oct</td><td>Doctor live demo #13</td><td>#7 tests</td><td>—</td></tr>
+<tr><td class="n">3</td><td>Mon 26 Oct</td><td>Dev Agent APA #26 → open and merge the R3 PR</td><td>#19 library reads</td><td>—</td></tr>
+<tr><td class="n">4–5</td><td>27–28 Oct</td><td>—</td><td>#12 decision brief (CLI, JSON, web panel)</td><td>Install OpenClaw and link a chat app</td></tr>
+<tr><td class="n">6</td><td>Thu 29 Oct</td><td>—</td><td>Open and merge the R4 PR; start #21 skill</td><td>—</td></tr>
+<tr><td class="n">7</td><td>Fri 30 Oct</td><td>—</td><td>#21 validator, Claude Code load</td><td>Deploy the cloud profile #24</td></tr>
+<tr><td class="n">8</td><td>Sat 31 Oct</td><td>#27 advisor real model; #19 two-run timing</td><td>Final sheet draft</td><td>Gemini full run #24</td></tr>
+<tr><td class="n">9</td><td>Sun 1 Nov</td><td>#27 3 fresh runs; golden runs</td><td>Merge the R5 PR</td><td>OpenClaw chat recording #21</td></tr>
+<tr><td class="n">10</td><td>Mon 2 Nov</td><td>—</td><td>Runbook, deck, README "Try it"</td><td>TestPyPI → PyPI #28 (optional)</td></tr>
+<tr><td class="n">11</td><td>Tue 3 Nov</td><td>Dry run 1 + fallback video</td><td>Final sheet: link all the evidence</td><td>—</td></tr>
+<tr><td class="n">12</td><td>Wed 4 Nov</td><td>Dry run 2 with an injected failure</td><td>Freeze <code>main</code>, tag <code>v1.0-review</code></td><td>Check that the hosted URL is up</td></tr>
+</table></div>
+
+<h2>8. Risks and fallbacks</h2>
+<div class="wrap"><table>
+<tr><th>Risk</th><th>Effect</th><th>Fallback</th></tr>
+<tr><td>The GPU laptop is not available</td><td>Phases 1 and 4 slip</td><td>Run the same checks on Gemini through the cloud profile, and label them "Gemini" on the sheet</td></tr>
+<tr><td>qwen 9B scores low on tool calling or the Dev Agent</td><td>Weeks 2 and 11 look weak</td><td>Report the real number and show the fallback or the Gemini rerun. Do not hide it</td></tr>
+<tr><td>The advisor still flags 0 gaps on the real model</td><td>Weeks 8 and 13 stay partial</td><td>Lower the recurrence threshold for the demo field only, and record that as a decision (D-0xx) with the reason</td></tr>
+<tr><td>Rate limits on the review day</td><td>The live run stalls in Discovery</td><td>The response cache (#6) is warmed by a dry run on the same topic, and the budget check warns in advance</td></tr>
+<tr><td>Wi-Fi or the hosted URL fails in the room</td><td>No cloud demo</td><td>The local GPU laptop is primary. The video is the last resort</td></tr>
+<tr><td>A late merge breaks <code>main</code></td><td>A demo-day surprise</td><td>Freeze on Day 12 and demo from the <code>v1.0-review</code> tag</td></tr>
+</table></div>
+
+<h2>9. Checklist</h2>
+<ul>
+<li>☐ R3 merged; #6 #10 #13 #16 #20 #22 #23 #26 closed with evidence</li>
+<li>☐ R4 merged; #7 #12 #19 closed</li>
+<li>☐ R5 merged; #21 closed with a recording</li>
+<li>☐ #27 results in <code>analytics_and_results.md</code> and <code>TILL_NOW.md</code></li>
+<li>☐ #24 hosted URL live; Gemini run committed</li>
+<li>☐ #28 on PyPI (optional)</li>
+<li>☐ <code>docs/lab-worklet-final.html</code>: 14 × "Implemented", each with a novelty line and links</li>
+<li>☐ Runbook, deck, golden runs, video, <code>v1.0-review</code> tag</li>
+</ul>
+</main>
+</body>
+</html>

@@ -21,12 +21,14 @@ dependencies = [
     "langgraph-checkpoint-sqlite>=3.0,<4.0",
     "fastapi>=0.110.0",
     "uvicorn>=0.29.0",
+    "mcp>=1.8,<2",
 ]
 
 [project.scripts]
 researchgenie = "researchgenie.cli:main"
 researchgenie-advise = "researchgenie.advisor_cli:main"
 researchgenie-dev = "dev_agent.agent:main"
+researchgenie-mcp = "researchgenie.mcp_server:main"
 
 [tool.setuptools]
 # The pipeline's own service modules (services/research-discovery, etc.)

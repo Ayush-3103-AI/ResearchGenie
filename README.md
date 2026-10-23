@@ -31,7 +31,7 @@ Run `researchgenie config` any time to change your setup.
 
 ## 🔬 Doing research
 
-Answer a few short questions — your research topic, how many papers to include (6–9), your preferred format (IEEE or Springer), and your target length (Short/Standard/Detailed) — confirm the summary, and watch live progress as each stage of the pipeline runs:
+Answer a few short questions — your research topic, how many papers to include (6–9), your preferred format (IEEE, Springer or APA), and your target length (Short/Standard/Detailed) — confirm the summary, and watch live progress as each stage of the pipeline runs:
 
 - 🔍 **Research Discovery** — searches multiple scholarly databases, filters for genuine topical relevance, and selects the strongest papers.
 - ✍️ **Research Writing** — builds an evidence-grounded outline and draft, citing only the literature it actually found.
@@ -41,6 +41,41 @@ Answer a few short questions — your research topic, how many papers to include
 After Discovery picks the papers, the run pauses and shows them as a numbered table. Press Enter to approve, or type `drop 2,5` to swap papers for the next-best candidates. If the search finds too few on-topic papers, Discovery tries once more with new queries.
 
 A run that fails part-way does not have to start over: `researchgenie resume <run folder or run id>` picks up from the failed stage (`--from STAGE` to choose one). Earlier output is kept as `final_v1/`, `final_v2/`, ….
+
+Not sure why a run failed? `researchgenie doctor <run id>` reads the run's event log and checks your system (Ollama, the model, keys, LaTeX). It explains the cause in plain language, quotes the evidence, and proposes one fix: start Ollama, download the model, add a free key, wait for a provider's reset, or resume from a stage. It applies the fix only after you say yes (`--yes` in headless mode) and saves `doctor_report.json` in the run folder. A failed run in the web UI has the same thing as a **Diagnose & fix** button.
+
+Searches, DOI lookups and extracted full text are cached in `~/.researchgenie/cache.sqlite` (searches for 7 days, lookups for 30, full text for good), so a repeat or similar run is faster and spends almost no quota. Add `--no-cache` to any command to fetch everything fresh; `researchgenie cache clear` empties the cache.
+
+## 🤖 Headless use (scripts and agents)
+
+The same pipeline runs without prompts, with JSON output and exit codes a script can act on:
+
+```
+researchgenie run -q "How does sleep affect memory consolidation?" --format APA --length short --json
+researchgenie run -q "..." --detach --json      # prints {"run_id": ...} and returns at once
+researchgenie status <run id> --json            # stage, state, last event
+researchgenie result <run id> --json            # final files, scores, verification counts, draft status
+researchgenie resume <run id> --json            # headless resume (--from STAGE to choose)
+researchgenie doctor <run id> --yes --json      # diagnose, apply the fix, resume
+researchgenie library search "<query>" --json   # past runs and papers in your library
+```
+
+`run` takes every research-request field as a flag (`researchgenie run --help` lists them). `--clarify` is `skip` (default) or `auto`; approval is always automatic headless. `--run-id` chooses the run id (letters, digits, hyphens), so `status` works while a waiting `run` is still going. Progress goes to stderr, the answer to stdout.
+
+To research from chat (Claude Code, or OpenClaw on WhatsApp, Telegram, Slack, Discord), install the agent skill in `skills/researchgenie/`. Setup and publishing are in [docs/agent-skill.md](docs/agent-skill.md).
+
+| Exit code | Meaning |
+|---|---|
+| 0 | Success (for `result`: the run completed) |
+| 1 | Failed, no more specific cause |
+| 2 | Bad arguments |
+| 3 | The model is unavailable (Ollama not running, model missing, Gemini key problem) |
+| 4 | Every literature source was exhausted or failed |
+| 5 | No relevant paper was found |
+| 6 | No run with that id or folder |
+| 7 | `result` asked of a run that is still going |
+
+Other tools can read your runs, search your library and check DOIs through a read-only MCP server, `researchgenie-mcp`. Setup for Claude Code, Claude Desktop and OpenClaw is in [docs/mcp-server.md](docs/mcp-server.md).
 
 ## 🧭 Not sure what to research yet?
 
@@ -127,11 +162,17 @@ Every run saves a complete, timestamped project folder containing:
 
 ResearchGenie always tells you the exact folder path when a run finishes.
 
+## 🛡️ Safety
+
+[docs/GOVERNANCE.md](docs/GOVERNANCE.md) maps each risk (invented citation, off-topic paper, unsupported claim, key leak, exhausted provider, bad output) to the control that handles it, where it is in the code, the test that proves it, and how to roll back.
+
 ## 🔒 Privacy
 
 With the default Ollama engine, your research question, retrieved literature, and generated draft never leave your machine — there is no cloud AI call anywhere in the pipeline. Choosing the optional Gemini engine sends prompts to Google's API, same as using any cloud AI service; your API key is stored locally and never logged, committed, or embedded in generated output.
 
 ## 📊 Project status
+
+For the final review: [docs/lab-worklet-final.html](docs/lab-worklet-final.html) maps each of the 14 lab weeks to its code, tests and live evidence. [docs/demo-runbook.md](docs/demo-runbook.md) is the 12-minute demo, and [docs/review-deck.html](docs/review-deck.html) is the deck. `python scripts/live_pass.py` runs every check that needs a real model and writes [docs/evidence/live-pass/LIVE_PASS.md](docs/evidence/live-pass/LIVE_PASS.md). For a hosted demo, see [docs/hosted-demo.md](docs/hosted-demo.md).
 
 See [TILL_NOW.md](TILL_NOW.md) for current progress and [DECISIONS.md](DECISIONS.md) for technical decisions and their reasoning. [analytics_and_results.md](analytics_and_results.md) documents the reliability work behind the pipeline, with real measured results.
 
