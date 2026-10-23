@@ -37,7 +37,7 @@ On the VM:
 
 ```
 sudo apt-get update && sudo apt-get install -y docker.io docker-compose-plugin git
-git clone https://github.com/Ayush-3103-AI/ResearchGenie.git && cd ResearchGenie
+git clone https://github.com/Ayush-3103-AI/ResearchGenie.git && cd ResearchGenie   # add -b review/integration until it is merged
 read -s GEMINI_API_KEY && export GEMINI_API_KEY      # paste the key; it is not echoed
 sudo -E docker compose --profile cloud up --build -d
 curl localhost:8000/system
