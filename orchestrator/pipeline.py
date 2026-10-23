@@ -17,6 +17,7 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from orchestrator import decision_brief  # noqa: E402
 from shared.contracts.discovery_contract import DiscoveryRequest, DiscoveryResult  # noqa: E402
 from shared.contracts.pipeline_contract import (  # noqa: E402
     Clarification, PipelineResult, ResearchRequest, StageTimings,
@@ -71,7 +72,7 @@ DEFAULT_OUTPUT_ROOT = ROOT / "outputs"
 # The files the pipeline writes to <run>/final/: the only ones the API,
 # the headless CLI and the MCP server hand out.
 FINAL_FILES = ("draft.md", "quality_report.md", "validation_report.md",
-               "references.md", "evidence_table.md", "paper.tex", "paper.pdf")
+               "references.md", "evidence_table.md", "decision_brief.md", "paper.tex", "paper.pdf")
 
 _STAGE_EMOJI = {
     "trend_advisor": "📈",
@@ -286,11 +287,23 @@ async def run_pipeline(
     try:
         async for event in _run_stages(request, output_root=output_root, run_id=run_id, **stage_options):
             append(event)
+            if event["type"] == "result":  # logged first: the brief reads the log
+                _write_brief(log_path.parent)
             yield event
     except Exception as error:
         # Same message run_registry reports for a failed run.
         append({"type": "error", "message": str(error) or type(error).__name__})
+        _write_brief(log_path.parent)
         raise
+
+
+def _write_brief(run_directory: Path) -> None:
+    """The decision brief (#12), at the end of every run, completed or failed.
+    Never fails the run, nor hides the error that failed it."""
+    try:
+        decision_brief.write_brief(run_directory)
+    except Exception:  # noqa: BLE001 — the run's own output and error come first
+        pass
 
 
 async def _run_stages(

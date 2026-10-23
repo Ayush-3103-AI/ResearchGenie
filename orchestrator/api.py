@@ -34,7 +34,7 @@ from fastapi.encoders import jsonable_encoder  # noqa: E402
 from fastapi.responses import FileResponse, StreamingResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from orchestrator import doctor, run_registry  # noqa: E402
+from orchestrator import decision_brief, doctor, run_registry  # noqa: E402
 from orchestrator.pipeline import (  # noqa: E402
     FINAL_FILES, PipelineError, find_run_directory, plan_resume, resume_pipeline, run_pipeline,
     run_trend_advisor_stage,
@@ -203,6 +203,17 @@ async def get_research_run(run_id: str) -> dict[str, object]:
         "result": jsonable_encoder(state.result) if state.result is not None else None,
         "error": state.error,
     }
+
+
+@app.get("/research/runs/{run_id}/brief")
+async def get_research_run_brief(run_id: str) -> dict[str, object]:
+    """The decision brief (#12) of a finished or failed run: the one next
+    action, what is strong and weak, the references and sections to check."""
+    directory = find_run_directory(run_id)
+    path = decision_brief.find_brief(directory) if directory else None
+    if path is None:
+        raise HTTPException(status_code=404, detail="This run has no decision brief (yet).")
+    return {**decision_brief.build_brief(directory), "path": str(path)}
 
 
 @app.get("/research/runs/{run_id}/events")

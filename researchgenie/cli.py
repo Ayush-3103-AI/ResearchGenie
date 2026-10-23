@@ -39,6 +39,7 @@ from rich.live import Live  # noqa: E402
 from rich.markup import escape  # noqa: E402
 from rich.prompt import Confirm, IntPrompt, Prompt  # noqa: E402
 
+from orchestrator import decision_brief  # noqa: E402
 from orchestrator.pipeline import (  # noqa: E402
     DEFAULT_OUTPUT_ROOT, STAGE_NAMES, PipelineError, find_run_directory, resume_pipeline,
     run_pipeline,
@@ -49,8 +50,8 @@ from researchgenie import ollama_manager as om  # noqa: E402
 from researchgenie.setup_wizard import run_setup_wizard  # noqa: E402
 from researchgenie.theme import ACCENT, ERROR, MUTED, OK, WARN  # noqa: E402
 from researchgenie.tui import (  # noqa: E402
-    PipelineView, render_approval_table, render_banner, render_completion, render_failure,
-    render_provider_status, render_summary,
+    PipelineView, render_approval_table, render_banner, render_brief, render_completion,
+    render_failure, render_provider_status, render_summary,
 )
 from shared.contracts.pipeline_contract import Clarification, ResearchRequest  # noqa: E402
 from shared.utilities import library, response_cache, scholarly_gateway  # noqa: E402
@@ -243,9 +244,8 @@ async def _run_research(console: Console, request: ResearchRequest | None,
             run_directory=str(directory) if directory
             else str(ROOT / "outputs") + " (see the most recent run folder)",
         )
-        if directory:
-            console.print(f"[{MUTED}]Resume it from the failed stage with:[/{MUTED}] "
-                          f"researchgenie resume {run_id}")
+        if directory:  # the brief's one next action points to the Doctor (#12)
+            render_brief(console, decision_brief.build_brief(directory))
         return
 
     if result is None:
@@ -272,6 +272,7 @@ async def _run_research(console: Console, request: ResearchRequest | None,
         evidence_limited_sections=draft_meta.evidence_limited_sections,
         broken_sections=draft_meta.broken_sections,
     )
+    render_brief(console, decision_brief.build_brief(Path(result.run_directory)))
 
 
 def _run_app(console: Console, config: rg_config.Config) -> None:

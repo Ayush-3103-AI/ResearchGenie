@@ -1175,6 +1175,7 @@ function showResults(r) {
   });
 
   const docs = {
+    "Decision brief": "_Loading the decision brief…_",
     "Draft": qa.final_draft_markdown,
     "Quality report": qa.quality_report_markdown,
     "Citation verification": qa.final_validation_report,
@@ -1189,7 +1190,12 @@ function showResults(r) {
     `<label><input type="radio" name="doc" value="${esc(k)}" ${i === 0 ? "checked" : ""}>${esc(k)}</label>`).join("");
   const show = (k) => { $("doc").innerHTML = md(docs[k] || "_Nothing here for this run._"); };
   document.querySelectorAll('input[name="doc"]').forEach((t) => t.onchange = () => show(t.value));
-  show("Draft");
+  show("Decision brief");
+  // The decision brief (#12) is built from the run folder, not the result JSON.
+  fetch(`/research/runs/${r.run_id}/brief`).then((res) => res.ok ? res.json() : {}).catch(() => ({})).then((b) => {
+    docs["Decision brief"] = b.markdown || "";
+    if (document.querySelector('input[name="doc"]:checked')?.value === "Decision brief") show("Decision brief");
+  });
   // The evidence table is only on disk (final/evidence_table.md), not in the result JSON.
   fetch(`/research/runs/${r.run_id}/files/evidence_table.md`).then((res) => res.ok ? res.text() : "").then((t) => {
     docs["Evidence"] = t;
