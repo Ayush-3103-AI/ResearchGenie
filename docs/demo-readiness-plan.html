@@ -39,7 +39,7 @@ td.n{white-space:nowrap;font-weight:600}
 <h1>ResearchGenie: Demo Readiness Plan</h1>
 <p class="sub">How we take every lab week from "built" to "shown working", and get the product ready for the final review with the professor and other stakeholders. Grounded in the repo as of 23 Oct 2026: <code>main</code> has R1 and R2 (PRs #29, #30), and <code>r3/integration</code> has R3 (not merged). It follows on from <a href="gap-implementation-plan.html">gap-implementation-plan.html</a> (18 Oct) and updates <a href="lab-worklet-weekly-draft.html">lab-worklet-weekly-draft.html</a> (23 Oct).</p>
 
-<div class="callout"><b>Assumption about dates.</b> We do not have the review date in the repo. This plan uses Day 1 = Sat 24 Oct and makes the product <b>demo-ready on Day 12 (Wed 4 Nov)</b>, with two spare days before a review in the week of 9 Nov. If the review is earlier, cut Phase 4 (PyPI) first, then the hosted URL. Never cut the live checks in Phase 1. They turn "tested on a fake model" into "shown working".</div>
+<div class="callout"><b>Update, 23 Oct: the review is Wed 28 Oct.</b> All the code work (R4: #7, #12, #19; R5: #21), the final sheet, the runbook, the deck and the hosted-demo recipe are built on <code>review/integration</code>. Everything that needs a real model now runs in one command on the GPU laptop: <code>python scripts/live_pass.py --push</code> (2–3 hours). Run it by Sun 25 Oct, merge on Mon 26, and rehearse on Tue 27. The day-by-day schedule in section 7 is superseded by that.</div>
 
 <h2>1. Where we are (18 Oct sheet → today → target)</h2>
 <div class="wrap"><table>
