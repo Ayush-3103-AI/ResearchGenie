@@ -124,6 +124,16 @@ def test_detach_prints_the_run_id_and_starts_a_fixed_background_command(capsys, 
     assert code == 0 and status["state"] == "starting"
 
 
+def test_a_chosen_run_id_is_plain_and_used_once(capsys):
+    code, report = _cli(capsys, "run", "-q", "What is X?", "--run-id", "rg-20261023-1530", "--json")
+    assert code == 0 and report["run_id"] == "rg-20261023-1530"
+    code, status = _cli(capsys, "status", "rg-20261023-1530", "--json")
+    assert code == 0 and status["state"] == "completed"
+    code, refused = _cli(capsys, "run", "-q", "What is Y?", "--run-id", "rg-20261023-1530", "--json")
+    assert code == headless.EXIT_USAGE and "already used" in refused["error"]
+    assert headless.main(["run", "-q", "What is X?", "--run-id", "../escape", "--json"]) == headless.EXIT_USAGE
+
+
 def test_resume_is_available_headless(capsys, monkeypatch):
     async def verification_fails(request):
         yield {"type": "status", "stage": "verify", "state": "running", "message": "verifying"}

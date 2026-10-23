@@ -1,7 +1,7 @@
 """Headless, JSON-speaking CLI (#10), for agents, scripts and the skill.
 
     researchgenie run -q "question" [--every-request-field ...] [--length short]
-                      [--no-cache] [--detach] [--json]
+                      [--no-cache] [--detach] [--run-id ID] [--json]
     researchgenie status <run id or folder> [--json]
     researchgenie result <run id or folder> [--json]
     researchgenie resume <run id or folder> [--from STAGE] (--json | --detach)
@@ -22,6 +22,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import subprocess
 import sys
 import typing
@@ -67,6 +68,13 @@ def _year_range(text: str) -> list[int]:
     return [int(start), int(end)]
 
 
+def _run_id(text: str) -> str:
+    """A caller-chosen run id becomes part of a folder name: keep it plain."""
+    if not re.fullmatch(r"[A-Za-z0-9-]{1,64}", text):
+        raise argparse.ArgumentTypeError("use 1-64 letters, digits and hyphens")
+    return text
+
+
 def _add_request_options(parser: argparse.ArgumentParser) -> None:
     """One flag per ResearchRequest field, so the CLI never falls behind the
     contract; pydantic validates the values."""
@@ -99,7 +107,8 @@ def build_parser() -> argparse.ArgumentParser:
     run = commands.add_parser("run", help="start a research run without prompts")
     _add_request_options(run)
     run.add_argument("--detach", action="store_true", help="print the run id and return at once")
-    run.add_argument("--run-id", help=argparse.SUPPRESS)  # set by --detach for the child
+    run.add_argument("--run-id", type=_run_id,
+                     help="choose the run id, so `status` works while the run is going")
 
     for name, text in (("status", "stage, state and last event"),
                        ("result", "final files, scores, verification counts, draft status")):
@@ -329,6 +338,8 @@ def main(argv: list[str]) -> int:
         except ValidationError as error:
             return fail(EXIT_USAGE, str(error))
         run_id = args.run_id or uuid4().hex
+        if args.run_id and find_run_directory(run_id, DEFAULT_OUTPUT_ROOT):
+            return fail(EXIT_USAGE, f"Run id {run_id!r} is already used.")
         if args.detach:
             _detach(argv, run_id)
             _print({"run_id": run_id, "state": "started",
