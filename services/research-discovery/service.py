@@ -62,7 +62,8 @@ async def run_discovery(request: DiscoveryRequest,
                                     fulltext_enabled=True, quality="balanced",
                                     keywords=request.keywords, approve=approve,
                                     domain=request.domain,
-                                    preferred_databases=request.preferred_databases):
+                                    preferred_databases=request.preferred_databases,
+                                    memory=request.memory):
         if event["type"] == "queries":
             queries = event["queries"]
         elif event["type"] == "tool_plan":

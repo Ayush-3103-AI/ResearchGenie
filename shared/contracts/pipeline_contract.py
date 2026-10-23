@@ -59,6 +59,10 @@ class ResearchRequest(BaseModel):
     clarify: ClarifyMode = "skip"
     clarification: Clarification | None = None
     approval: ApprovalMode = "auto"
+    # Discovery reuses the research library: stored discussion excerpts and
+    # matching past papers, still screened by the relevance gate (#19).
+    # False (`--no-memory`) never reads the library.
+    memory: bool = True
 
     @model_validator(mode="after")
     def _require_format_other_name(self) -> "ResearchRequest":

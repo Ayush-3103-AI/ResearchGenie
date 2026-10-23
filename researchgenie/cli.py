@@ -12,6 +12,8 @@
     researchgenie run|status|result ...       Headless, JSON-speaking commands
                                               (researchgenie/headless.py).
     --no-cache (any command)                  Fetch scholarly answers fresh.
+    --no-memory (a research run)              Don't let Discovery read the
+                                              research library (#19).
 
 Everything downstream of "ready" reuses the existing, already-tested
 pipeline (orchestrator.pipeline.run_pipeline) unchanged — this module is
@@ -115,7 +117,7 @@ def _ensure_ready(console: Console, config: rg_config.Config) -> bool:
     return ready
 
 
-def _collect_request(console: Console) -> ResearchRequest:
+def _collect_request(console: Console, memory: bool = True) -> ResearchRequest:
     console.print()
     question = Prompt.ask("[bold]What are you researching?[/bold]")
     while not question.strip():
@@ -146,7 +148,7 @@ def _collect_request(console: Console) -> ResearchRequest:
     return ResearchRequest(
         research_question=question, corpus_size=corpus_size, target_format=target_format,
         max_draft_length=target_words, clarify="ask", clarification=clarification,
-        approval="ask",
+        approval="ask", memory=memory,
     )
 
 
@@ -275,11 +277,11 @@ async def _run_research(console: Console, request: ResearchRequest | None,
     render_brief(console, decision_brief.build_brief(Path(result.run_directory)))
 
 
-def _run_app(console: Console, config: rg_config.Config) -> None:
+def _run_app(console: Console, config: rg_config.Config, memory: bool = True) -> None:
     render_banner(console)
     render_provider_status(console, scholarly_gateway.provider_status())
     console.print(f"[{OK}]Ready to research.[/{OK}]\n")
-    request = _collect_request(console)
+    request = _collect_request(console, memory)
     render_summary(
         console, question=request.research_question, corpus_size=request.corpus_size,
         target_format=request.target_format, provider_label=_provider_label(config),
@@ -371,7 +373,7 @@ def main() -> None:
     if not _ensure_ready(console, config):
         sys.exit(1)
 
-    _run_app(console, config)
+    _run_app(console, config, memory="--no-memory" not in args)
 
 
 if __name__ == "__main__":

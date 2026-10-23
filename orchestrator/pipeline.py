@@ -206,7 +206,8 @@ def _progress_event(
 
 _PASSED_THROUGH = ("host", "wait_seconds", "remedy", "papers", "reserve", "approved_by",
                    "approved_at", "dropped", "replacements", "round", "reason",
-                   "accepted_before", "accepted_after", "hits", "mode", "plan")
+                   "accepted_before", "accepted_after", "hits", "mode", "plan",
+                   "count", "reused_excerpts", "seeded_papers")
 
 
 def _adapt_inner_event(run_id: str, stage: str, service: str, inner: dict[str, Any]) -> dict[str, Any]:
@@ -218,6 +219,8 @@ def _adapt_inner_event(run_id: str, stage: str, service: str, inner: dict[str, A
         status = state
     elif inner_type in ("source_error", "provider_exhausted"):
         status = "warning"
+    elif inner_type == "memory_hit":  # read by the decision brief (#12, #19)
+        status = "memory_hit"
     else:
         status = "running"
     message = inner.get("message") or inner_type
@@ -401,6 +404,8 @@ async def _run_stages(
         )
 
     # ---- Stage 1: Research Discovery ----
+    # Discovery's memory_hit event (#19), kept for metadata.json.
+    memory_hits = {"count": 0, "reused_excerpts": 0, "seeded_papers": 0}
     t0 = time.monotonic()
     if "discovery" in loaded:
         discovery_result = loaded["discovery"]
@@ -410,7 +415,7 @@ async def _run_stages(
             research_question=request.research_question, domain=request.domain,
             year_range=request.year_range, preferred_databases=request.preferred_databases,
             keywords=request.keywords, excluded_topics=request.excluded_topics,
-            corpus_size=request.corpus_size,
+            corpus_size=request.corpus_size, memory=request.memory,
         )
         discovery_result = None
         async for event in discovery_service.run_discovery(
@@ -418,6 +423,8 @@ async def _run_stages(
             if event["type"] == "result":
                 discovery_result = event["result"]
             else:
+                if event["type"] == "memory_hit":
+                    memory_hits = {k: event[k] for k in memory_hits}
                 yield _adapt_inner_event(run_id, "discovery", "research_discovery", event)
         if discovery_result is None:
             raise PipelineError("Research Discovery Service produced no result.")
@@ -570,6 +577,9 @@ async def _run_stages(
         "broken_sections": draft_meta.broken_sections,
         "duplicate_sections": draft_meta.duplicate_sections,
     }
+    if "discovery" not in loaded:
+        # With timings.discovery_seconds, what a related second run saved (#19).
+        metadata["memory"] = {"enabled": request.memory, **memory_hits}
     if resume:
         metadata["resumed_from_stage"] = resume[0]
         metadata["final_versions"] = _final_versions(run_directory)
