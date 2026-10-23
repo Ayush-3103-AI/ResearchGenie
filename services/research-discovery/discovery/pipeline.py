@@ -18,7 +18,7 @@ from .analysis import (analyze_gaps, economy_model, generate_queries,
 from .models import Paper, PipelineError, normalize_title
 from .relevance import build_topic_profile, screen_papers
 from .source_plan import plan_sources
-from .sources import SOURCE_URLS, SOURCES, openalex
+from .sources import SOURCE_URLS, SOURCES, crossref, openalex
 
 FULLTEXT_MAX_ATTEMPTS = 40   # papers we try to fetch full text for
 VERIFY_RESULTS_PER_CANDIDATE = 8
@@ -169,9 +169,13 @@ async def _collect_fulltext(corpus: list[Paper], gateway_run: scholarly_gateway.
 
 async def _verify_candidates(candidates: list[dict], corpus: list[Paper],
                              transport: httpx.AsyncBaseTransport | None = None,
+                             openalex_searches: int | None = None,
                              ) -> tuple[list[Paper], list[dict]]:
     """Search the literature for each candidate question; return new verification
-    papers (with ids continuing after the corpus) and per-candidate warnings."""
+    papers (with ids continuing after the corpus) and per-candidate warnings.
+    One search per distinct question; the first `openalex_searches` of them
+    (None: all) search OpenAlex and the rest Crossref, so they never spend
+    more credits than the budget check allowed (#7)."""
     # Index the corpus by both DOI and title so a verification hit that lacks a
     # DOI still matches a DOI-keyed corpus paper (and vice versa) instead of being
     # re-added as a duplicate reference.
@@ -183,19 +187,32 @@ async def _verify_candidates(candidates: list[dict], corpus: list[Paper],
     next_id = max((p.id for p in corpus), default=0) + 1
     sem = asyncio.Semaphore(4)
 
-    async def search_one(cand: dict) -> list[Paper]:
+    def key(cand: dict) -> str:
+        return normalize_title(cand["question"]) or cand["question"]
+
+    questions: dict[str, str] = {}
+    for cand in candidates:
+        questions.setdefault(key(cand), cand["question"])
+    allowed = len(questions) if openalex_searches is None else openalex_searches
+
+    async def search_one(index: int, question: str) -> list[Paper]:
         async with sem:
+            if index >= allowed:
+                return await crossref.search(http, {"keyword": question},
+                                             VERIFY_RESULTS_PER_CANDIDATE)
             # require_abstract=False: an answering paper must not be hidden just
             # because OpenAlex has no indexed abstract for it.
-            return await openalex.search(http, {"keyword": cand["question"]},
+            return await openalex.search(http, {"keyword": question},
                                          VERIFY_RESULTS_PER_CANDIDATE,
                                          require_abstract=False)
 
     async with httpx.AsyncClient(timeout=45, follow_redirects=True, transport=transport) as http:
-        results = await asyncio.gather(*[search_one(c) for c in candidates],
-                                       return_exceptions=True)
+        found = await asyncio.gather(*[search_one(i, q) for i, q in enumerate(questions.values())],
+                                     return_exceptions=True)
+    by_question = dict(zip(questions, found))
 
-    for cand, result in zip(candidates, results):
+    for cand in candidates:
+        result = by_question[key(cand)]
         cand["evidence_paper_ids"] = []
         if isinstance(result, BaseException):
             warnings.append({"type": "source_error", "source": "Verification search",
@@ -336,14 +353,18 @@ async def run_pipeline(question: str, source_keys: list[str],
                        approve: Approver | None = None,
                        domain: str | None = None,
                        preferred_databases: list[str] | None = None,
-                       memory: bool = True) -> AsyncIterator[dict]:
+                       memory: bool = True,
+                       verification_searches: int | None = None) -> AsyncIterator[dict]:
     """`transport` is a test seam (httpx.MockTransport); production leaves it None.
     `approve` pauses the run after screening for the paper approval step
     (#17); without it the corpus is approved automatically. `domain` and
     `preferred_databases` steer which of `source_keys` are searched (#16).
     `memory` reads the research library (#19): past papers matching the
     question join the candidates, and a stored excerpt replaces a full-text
-    fetch. Off, the library is never read."""
+    fetch. Off, the library is never read.
+
+    `verification_searches` caps the OpenAlex verification searches at what
+    the budget check allowed (#7); None: no cap."""
     selected = [(k, *SOURCES[k]) for k in source_keys if k in SOURCES]
     if not selected:
         raise PipelineError("Select at least one literature source.")
@@ -563,7 +584,8 @@ async def run_pipeline(question: str, source_keys: list[str],
             yield {"type": "status", "stage": "verify", "state": "running",
                    "message": f"Checking whether {len(candidates)} candidate(s) have "
                               "already been answered…"}
-            verify = gateway_run.task(_verify_candidates(candidates, corpus, transport))
+            verify = gateway_run.task(_verify_candidates(candidates, corpus, transport,
+                                                         verification_searches))
             async for event in gateway_run.relay(verify):
                 yield event
             verification_papers, warnings = verify.result()

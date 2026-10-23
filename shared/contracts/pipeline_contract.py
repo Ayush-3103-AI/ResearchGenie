@@ -27,6 +27,11 @@ ClarifyMode = Literal["ask", "skip", "auto"]
 # page sets it; the interactive CLI always asks). auto: approved as found —
 # the default, so headless runs, scripts and tests never stall (#17).
 ApprovalMode = Literal["ask", "auto"]
+# The budget check before Discovery (#7). auto: the full plan when the known
+# OpenAlex balance covers the run, else the reduced plan (verification
+# searches use Crossref) — the default, so headless runs never stall.
+# full / reduced: the user's choice, made on an interactive surface or a flag.
+BudgetPlan = Literal["auto", "full", "reduced"]
 
 
 class Clarification(BaseModel):
@@ -63,6 +68,7 @@ class ResearchRequest(BaseModel):
     # matching past papers, still screened by the relevance gate (#19).
     # False (`--no-memory`) never reads the library.
     memory: bool = True
+    budget_plan: BudgetPlan = "auto"
 
     @model_validator(mode="after")
     def _require_format_other_name(self) -> "ResearchRequest":

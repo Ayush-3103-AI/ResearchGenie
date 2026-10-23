@@ -29,6 +29,9 @@ class DiscoveryRequest(BaseModel):
     corpus_size: int = Field(ge=6, le=9)
     # Read the research library: stored excerpts, seeded past papers (#19).
     memory: bool = True
+    # OpenAlex verification searches the budget check allowed (#7); the
+    # rest search Crossref. None: no cap.
+    verification_searches: int | None = Field(default=None, ge=0)
 
 
 class PaperMetadata(BaseModel):

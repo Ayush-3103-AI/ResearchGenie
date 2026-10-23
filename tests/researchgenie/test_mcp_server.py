@@ -46,10 +46,11 @@ def finished_run(tmp_path, monkeypatch):
 
 
 def _doi_transport(request: httpx.Request) -> httpx.Response:
+    asked = request.url.params.get("filter", "")  # a DOI filter (#7)
     if request.url.host == "api.crossref.org":
-        return httpx.Response(200 if REAL_DOI in request.url.path else 404, json={})
-    if "doi:" in request.url.path:  # OpenAlex fallback
-        return httpx.Response(404)
+        return httpx.Response(200, json={"message": {"items": [{"DOI": REAL_DOI}] if REAL_DOI in asked else []}})
+    if asked.startswith("doi:"):  # OpenAlex fallback
+        return httpx.Response(200, json={"results": []})
     return httpx.Response(200, json={"results": [{
         "id": "https://openalex.org/W1", "display_name": "Sleep and memory",
         "publication_year": 2020, "cited_by_count": 7, "doi": "https://doi.org/10.1/sleep",

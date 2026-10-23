@@ -76,6 +76,14 @@ def test_run_takes_every_request_field_and_returns_the_result_as_json(capsys, ou
     assert status["stage"] == "quality_assurance" and status["last_event"]["message"]
 
 
+def test_a_headless_run_short_of_openalex_budget_takes_the_reduced_plan_and_says_so(capsys, monkeypatch):
+    monkeypatch.setattr(orchestrator_pipeline.scholarly_gateway, "balance", lambda: 30)
+    code = headless.main(["run", "-q", "What is X?", "--json"])
+    err = capsys.readouterr().err
+    assert code == headless.EXIT_OK
+    assert "Running the reduced plan" in err and "OpenAlex key" in err
+
+
 @pytest.mark.parametrize("message, exhausted, exit_code, failure_class", [
     ("Could not reach the local Ollama server at http://127.0.0.1:11434. Start it with: ollama serve",
      False, headless.EXIT_MODEL_UNAVAILABLE, "model_unavailable"),

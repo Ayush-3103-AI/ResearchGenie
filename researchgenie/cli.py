@@ -43,13 +43,13 @@ from rich.prompt import Confirm, IntPrompt, Prompt  # noqa: E402
 
 from orchestrator import decision_brief  # noqa: E402
 from orchestrator.pipeline import (  # noqa: E402
-    DEFAULT_OUTPUT_ROOT, STAGE_NAMES, PipelineError, find_run_directory, resume_pipeline,
-    run_pipeline,
+    DEFAULT_OUTPUT_ROOT, STAGE_NAMES, PipelineError, check_budget, find_run_directory,
+    resume_pipeline, run_pipeline,
 )
 from orchestrator.pipeline import discovery_service  # noqa: E402 — for the clarify step
 from researchgenie import config as rg_config  # noqa: E402
 from researchgenie import ollama_manager as om  # noqa: E402
-from researchgenie.setup_wizard import run_setup_wizard  # noqa: E402
+from researchgenie.setup_wizard import run_setup_wizard, setup_scholarly_access  # noqa: E402
 from researchgenie.theme import ACCENT, ERROR, MUTED, OK, WARN  # noqa: E402
 from researchgenie.tui import (  # noqa: E402
     PipelineView, render_approval_table, render_banner, render_brief, render_completion,
@@ -188,6 +188,24 @@ def _clarify(console: Console, question: str) -> tuple[str, Clarification]:
     return chosen, Clarification(original_question=question, decision=decision, **clarified)
 
 
+def _budget_choice(console: Console, config: rg_config.Config,
+                   request: ResearchRequest) -> ResearchRequest:
+    """The budget check before the run (#7): when the known OpenAlex balance
+    can't cover it, offer the free key or the reduced plan."""
+    check = check_budget(request)
+    if check["plan"] == "full":
+        return request
+    console.print(f"\n[{WARN}]{escape(check['reason'])}[/{WARN}]")
+    console.print("[1] Add your free OpenAlex key (takes 1 minute)  "
+                  "[2] Run the reduced plan (verification searches use Crossref)")
+    if Prompt.ask("Select", choices=["1", "2"], default="1") == "2":
+        return request.model_copy(update={"budget_plan": "reduced"})
+    setup_scholarly_access(console, config)
+    rg_config.save(config)
+    rg_config.apply_scholarly(config)
+    return request  # the run checks again, now with the key (or reduces if none was added)
+
+
 def _provider_label(config: rg_config.Config) -> str:
     if config.provider == "gemini":
         return f"Gemini · {config.gemini_model}"
@@ -290,7 +308,7 @@ def _run_app(console: Console, config: rg_config.Config, memory: bool = True) ->
     if not Confirm.ask("\n[bold]Start research?[/bold]", default=True):
         console.print(f"[{MUTED}]Cancelled.[/{MUTED}]")
         return
-    asyncio.run(_run_research(console, request))
+    asyncio.run(_run_research(console, _budget_choice(console, config, request)))
 
 
 def _library_command(console: Console, args: list[str]) -> None:

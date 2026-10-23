@@ -613,3 +613,61 @@ def test_no_key_or_email_reaches_the_event_log_or_the_run_folder(tmp_path, monke
     written = "".join(p.read_text(encoding="utf-8") for p in tmp_path.rglob("*") if p.is_file())
     assert "api.openalex.org" in written
     assert "oa-secret-0123456789" not in written and "student@example.edu" not in written
+
+
+@pytest.mark.parametrize("balance, choice, plan, searches", [
+    (None, "auto", "full", 5),     # unknown until the first request: no reason to cut
+    (1000, "auto", "full", 5),
+    (30, "auto", "reduced", 0),    # 30 < 71 credits: headless takes the reduced plan
+    (50, "full", "full", 2),       # the user insisted: OpenAlex searches stop at the balance
+    (1000, "reduced", "reduced", 0),
+])
+def test_the_budget_check_estimates_the_run_and_picks_the_plan(monkeypatch, balance, choice, plan, searches):
+    monkeypatch.setattr(orchestrator_pipeline.scholarly_gateway, "balance", lambda: balance)
+    check = orchestrator_pipeline.check_budget(
+        ResearchRequest(research_question="Q?", corpus_size=6, budget_plan=choice))
+    # 2 searches (first + re-plan) + 5 verification searches at 10 credits, 1 DOI filter at 1.
+    assert check["estimated_credits"] == 71
+    assert (check["balance"], check["plan"], check["verification_searches"]) == (balance, plan, searches)
+
+
+def test_a_budget_check_before_discovery_is_logged_and_credits_reach_the_metadata(tmp_path, monkeypatch):
+    import httpx
+    from shared.utilities import scholarly_gateway
+
+    monkeypatch.setattr(scholarly_gateway, "_gateway", scholarly_gateway.Gateway())  # no state from other tests
+    monkeypatch.setattr(scholarly_gateway, "balance", lambda: 30)
+    seen = {}
+
+    async def discovery(request):
+        seen["request"] = request
+        transport = httpx.MockTransport(lambda r: httpx.Response(200, json={"results": []}))
+        async with httpx.AsyncClient(transport=transport) as http:  # one OpenAlex search
+            await scholarly_gateway.Run().task(scholarly_gateway.get(
+                http, "https://api.openalex.org/works", params={"search": "q"}))
+        async for event in _fake_run_discovery(request):
+            yield event
+
+    monkeypatch.setattr(orchestrator_pipeline.discovery_service, "run_discovery", discovery)
+
+    async def run():
+        async for event in orchestrator_pipeline.run_pipeline(
+                ResearchRequest(research_question="What is X?", corpus_size=6),
+                output_root=tmp_path, run_id="b1"):
+            if event["type"] == "result":
+                return event["result"]
+
+    result = asyncio.run(run())
+    run_directory = Path(result.run_directory)
+    logged = [json.loads(line) for line in (run_directory / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+    [check] = [e for e in logged if e.get("details", {}).get("raw_type") == "budget_check"]
+    assert check["stage"] == "discovery" and logged.index(check) < next(
+        i for i, e in enumerate(logged) if e.get("service") == "research_discovery")
+    assert {k: check["details"][k] for k in ("estimated_credits", "balance", "plan")} == {
+        "estimated_credits": 71, "balance": 30, "plan": "reduced"}
+    assert "30 credit(s) left" in check["details"]["reason"]
+    assert "reduced plan" in check["message"] and "OpenAlex key" in check["message"]
+    assert seen["request"].verification_searches == 0
+
+    metadata = json.loads((run_directory / "metadata.json").read_text(encoding="utf-8"))
+    assert metadata["credits_used"] == {"OpenAlex": 10}

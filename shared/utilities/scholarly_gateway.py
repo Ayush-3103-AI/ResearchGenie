@@ -4,7 +4,7 @@ Replaces Discovery's `_http_retry.py` (DECISIONS.md D-028). That helper
 retried each request on its own, so four sources and the full-text fan-out
 hammered the same hosts in parallel with no shared pace, waited at most
 ~7 s in total, and retried OpenAlex's "daily budget gone" 429 as if it were
-transient. The gateway owns four things, all driven by the POLICIES table:
+transient. The gateway owns six things, all driven by the POLICIES table:
 
 - pacing: one token bucket per host, shared by the whole process (two runs at
   once draw from the same bucket). Requests wait for a token; they are never
@@ -23,6 +23,9 @@ transient. The gateway owns four things, all driven by the POLICIES table:
   a fresh entry exists (no token, no quota, even for an exhausted host), and
   200 responses are stored. Credit exhaustion and the OpenAlex rate-limit
   headers persist there too, so the next process knows before it starts.
+- credits (#7): what each OpenAlex request costs (CREDIT_COSTS), the balance
+  left today for the run's budget check, and a per-run tally of the credits
+  spent per provider (count_credits).
 
 Callers keep passing their own httpx.AsyncClient. Per-run state (breaker
 counts, the event queue for `rate_limited` / `provider_exhausted`) lives in a
@@ -111,6 +114,12 @@ POLICIES: dict[str, HostPolicy] = {
         remedy="Europe PMC is overloaded; full text falls back to open-access PDFs."),
 }
 
+OPENALEX_HOST = "api.openalex.org"
+# OpenAlex's price per request, in credits (#7): a search costs ten list or
+# filter calls; a single-entity lookup (/works/W1, /works/doi:...) is free.
+CREDIT_COSTS = {"search": 10, "list": 1, "entity": 0}
+DOI_BATCH = 100  # DOIs per OR-filter request: OpenAlex's page limit (#7)
+
 # Any other host: open-access PDF links point at arbitrary publisher sites.
 DEFAULT_POLICY = HostPolicy(
     name="Open-access host", rate=2, burst=2, concurrency=2, identity="none",
@@ -167,6 +176,15 @@ def concurrency(url_or_host: str) -> int:
     return policy_for(url_or_host).concurrency
 
 
+def credit_cost(url: str, params: dict | None = None) -> int:
+    """The credits one request costs; 0 on a host without a credit budget."""
+    if not policy_for(url).credits_marker:
+        return 0
+    if response_cache.ttl_for(url) == response_cache.LOOKUP_TTL:  # an entity path
+        return CREDIT_COSTS["entity"]
+    return CREDIT_COSTS["search" if (params or {}).get("search") else "list"]
+
+
 class ProviderExhausted(httpx.HTTPError):
     """A host is skipped for the rest of the run (breaker tripped) or until its
     reset time (credit budget gone). Subclasses httpx.HTTPError so callers that
@@ -183,6 +201,17 @@ class ProviderExhausted(httpx.HTTPError):
 
 _current_run: contextvars.ContextVar["Run | None"] = contextvars.ContextVar(
     "scholarly_gateway_run", default=None)
+_credits_used: contextvars.ContextVar[dict[str, int] | None] = contextvars.ContextVar(
+    "scholarly_gateway_credits", default=None)
+
+
+def count_credits() -> dict[str, int]:
+    """Starts a {provider name: credits} tally for the current context and
+    every task started from it (each stage's Run copies the context), filled
+    in as answers arrive; the orchestrator records it in metadata.json (#7)."""
+    tally: dict[str, int] = {}
+    _credits_used.set(tally)
+    return tally
 
 
 class Run:
@@ -475,7 +504,10 @@ class Gateway:
                 rate = {k.lower(): v for k, v in resp.headers.items()
                         if k.lower().startswith("x-ratelimit")}
                 if rate:
-                    response_cache.save_balance(host, {**rate, "seen_at": self._wall_clock()})
+                    response_cache.save_balance(host, {**rate, "seen_at": self._wall_clock(),
+                                                       "keyed": _keyed(policy)})
+            if (tally := _credits_used.get()) is not None and resp.status_code != 429:
+                tally[policy.name] = tally.get(policy.name, 0) + credit_cost(url, params)
             if resp.status_code not in RETRY_STATUSES:
                 run.failures[host] = 0
                 return resp
@@ -520,6 +552,22 @@ class Gateway:
         """The host's credit budget is used up and has not reset yet."""
         return self._exhausted().get(host, 0.0) > self._wall_clock()
 
+    def balance(self, host: str) -> int | None:
+        """Credits the host has left today: 0 while its budget is used up,
+        else the last x-ratelimit-remaining it sent since the daily reset
+        (midnight UTC) with the key set now, else None (unknown)."""
+        if self.exhausted(host):
+            return 0
+        seen = response_cache.balance(host) or {}
+        now = self._wall_clock()
+        if (seen.get("seen_at", 0) < _next_utc_midnight(now) - 24 * 3600
+                or seen.get("keyed", False) != _keyed(policy_for(host))):
+            return None  # seen before today's reset, or with another key
+        try:
+            return int(seen["x-ratelimit-remaining"])
+        except (KeyError, ValueError):
+            return None
+
     def _check_available(self, run: Run, host: str, policy: HostPolicy) -> None:
         if host in run.tripped:
             raise run.exhausted(run.tripped[host])
@@ -557,6 +605,11 @@ def count_cache_hit() -> None:
 def provider_status() -> list[dict]:
     """Per-provider access and health from the process-wide gateway."""
     return _gateway.provider_status()
+
+
+def balance(host: str = OPENALEX_HOST) -> int | None:
+    """The host's credits left today, if known (see Gateway.balance)."""
+    return _gateway.balance(host)
 
 
 def stream(http: httpx.AsyncClient, url: str, *, params: dict | None = None,

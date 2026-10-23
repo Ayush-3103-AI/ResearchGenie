@@ -465,3 +465,48 @@ def test_provider_status_shows_access_and_health_per_provider(monkeypatch):
     status = {p["host"]: p for p in gateway.provider_status()}
     assert status["api.openalex.org"]["health"] == "degraded"
     assert OPENALEX_KEY not in str(status) and EMAIL not in str(status)
+
+
+# --------------------------------------------------- credit budget (#7)
+
+def test_credit_costs_a_search_ten_a_filter_one_an_entity_lookup_nothing():
+    assert scholarly_gateway.credit_cost(OPENALEX, {"search": "q"}) == 10
+    assert scholarly_gateway.credit_cost(OPENALEX, {"filter": "doi:10.1/a|10.1/b"}) == 1
+    assert scholarly_gateway.credit_cost("https://api.openalex.org/works/doi:10.1/a") == 0
+    assert scholarly_gateway.credit_cost("https://api.openalex.org/works/W123") == 0
+    assert scholarly_gateway.credit_cost("https://api.crossref.org/works", {"query": "q"}) == 0
+
+
+def test_a_run_tallies_the_credits_each_provider_charged():
+    gateway = _gateway(FakeTime())
+    transport, _ = _replies(httpx.Response(200, json={"results": []}))
+
+    async def main():
+        tally = scholarly_gateway.count_credits()
+        async with httpx.AsyncClient(transport=transport) as http:
+            await Run().task(gateway.get(http, OPENALEX, params={"search": "q"}))  # a stage's task
+            await gateway.get(http, OPENALEX, params={"filter": "doi:10.1/a"})
+            await gateway.get(http, "https://api.crossref.org/works", params={"query": "q"})
+        return tally
+
+    assert asyncio.run(main()) == {"OpenAlex": 11, "Crossref": 0}
+
+
+def test_the_balance_counts_only_since_the_daily_reset_and_for_the_key_set_now(monkeypatch):
+    monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
+    fake = FakeTime()
+    gateway = _gateway(fake)
+    assert gateway.balance("api.openalex.org") is None  # nothing seen yet
+
+    transport, _ = _replies(httpx.Response(200, headers={"X-RateLimit-Remaining": "40"}, json={}))
+    _get(gateway, transport, OPENALEX, params={"search": "q"})
+    assert gateway.balance("api.openalex.org") == 40
+
+    monkeypatch.setenv("OPENALEX_API_KEY", "a-new-key")
+    assert gateway.balance("api.openalex.org") is None  # seen without the key now set
+    monkeypatch.delenv("OPENALEX_API_KEY")
+    fake.now += 24 * 3600  # past midnight UTC: the budget has reset
+    assert gateway.balance("api.openalex.org") is None
+
+    gateway._exhausted_until["api.openalex.org"] = fake.wall() + 3600
+    assert gateway.balance("api.openalex.org") == 0
