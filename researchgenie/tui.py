@@ -186,6 +186,27 @@ def render_completion(console: Console, *, run_directory: str, overall_score: fl
     ))
 
 
+def render_brief(console: Console, brief: dict) -> None:
+    """The decision brief (#12): the one next action, then what to look at."""
+    body = Table.grid(padding=(0, 1))
+    body.add_column()
+    body.add_row(Text("Next action:", style=f"bold {MUTED}"))
+    body.add_row(Text(brief["next_action"], style=f"bold {ACCENT}"))
+    for heading, lines, style in (("Strong", brief["strong"], OK), ("Weak", brief["weak"], WARN)):
+        if lines:
+            body.add_row("")
+            body.add_row(Text(f"{heading}:", style=f"bold {MUTED}"))
+            for line in lines:
+                body.add_row(Text(f"• {line}", style=style))
+    if brief["check_references"]:
+        body.add_row("")
+        body.add_row(Text(f"Check by hand: reference(s) {', '.join(map(str, brief['check_references']))}",
+                          style=WARN))
+    if brief["sections"]:
+        body.add_row(Text(f"Sections to look at: {', '.join(brief['sections'])}", style=WARN))
+    console.print(Panel.fit(body, title="Decision brief", border_style=SECONDARY, padding=(1, 3)))
+
+
 def render_failure(console: Console, *, stage: str, reason: str, run_directory: str | None) -> None:
     body = Table.grid(padding=(0, 1))
     body.add_column()

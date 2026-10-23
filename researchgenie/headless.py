@@ -33,7 +33,7 @@ from pydantic import ValidationError
 from rich.console import Console
 from rich.prompt import Confirm
 
-from orchestrator import doctor
+from orchestrator import decision_brief, doctor
 from orchestrator.pipeline import (
     DEFAULT_OUTPUT_ROOT, FINAL_FILES, STAGE_NAMES, find_run_directory, resume_pipeline,
     run_pipeline,
@@ -200,6 +200,11 @@ def result_of(run_directory: Path) -> dict[str, Any]:
             draft_status=draft["draft_status"], length_status=draft.get("length_status"),
             actual_words=draft.get("actual_words"), target_words=draft.get("target_words"),
         )
+    if status["state"] != "running":  # the one next action (#12); a failed run's points to the Doctor
+        brief = decision_brief.build_brief(run_directory)
+        path = decision_brief.find_brief(run_directory)
+        out["decision_brief"] = {"path": str(path) if path else None,
+                                 "next_action": brief["next_action"], "markdown": brief["markdown"]}
     return out
 
 
