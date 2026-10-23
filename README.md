@@ -170,6 +170,8 @@ With the default Ollama engine, your research question, retrieved literature, an
 
 ## 📊 Project status
 
+For the final review: [docs/lab-worklet-final.html](docs/lab-worklet-final.html) maps each of the 14 lab weeks to its code, tests and live evidence. [docs/demo-runbook.md](docs/demo-runbook.md) is the 12-minute demo, and [docs/review-deck.html](docs/review-deck.html) is the deck. `python scripts/live_pass.py` runs every check that needs a real model and writes [docs/evidence/live-pass/LIVE_PASS.md](docs/evidence/live-pass/LIVE_PASS.md). For a hosted demo, see [docs/hosted-demo.md](docs/hosted-demo.md).
+
 See [TILL_NOW.md](TILL_NOW.md) for current progress and [DECISIONS.md](DECISIONS.md) for technical decisions and their reasoning. [analytics_and_results.md](analytics_and_results.md) documents the reliability work behind the pipeline, with real measured results.
 
 ## 🛠️ For developers

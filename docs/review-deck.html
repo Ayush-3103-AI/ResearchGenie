@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ResearchGenie Review Deck</title>
+<style>
+:root{--bg:#fbfaf7;--card:#fff;--ink:#1d1d1b;--mute:#5d5b55;--line:#e3e0d8;--shade:#f3f1ea;--acc:#3d4fa3;--accbg:#e9ecf8;--ok:#1f7a4d;--okbg:#e6f3ec;--warn:#9a6100;--warnbg:#fbf0dc}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161614;--card:#1f1f1c;--ink:#ecebe6;--mute:#a7a59d;--line:#34332e;--shade:#26251f;--acc:#9eabf0;--accbg:#232a47;--ok:#6fcf9b;--okbg:#1d3328;--warn:#e9b65c;--warnbg:#3a2e17}}
+:root[data-theme="dark"]{--bg:#161614;--card:#1f1f1c;--ink:#ecebe6;--mute:#a7a59d;--line:#34332e;--shade:#26251f;--acc:#9eabf0;--accbg:#232a47;--ok:#6fcf9b;--okbg:#1d3328;--warn:#e9b65c;--warnbg:#3a2e17}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:18px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+.slide{min-height:100vh;padding:48px max(16px,6vw);display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--line)}
+h1{font-size:clamp(30px,5vw,52px);margin:0 0 10px;line-height:1.1}h2{font-size:clamp(24px,3.4vw,36px);margin:0 0 20px}
+.kicker{color:var(--acc);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:14px;margin-bottom:8px}
+.lead{font-size:clamp(18px,2.2vw,24px);color:var(--mute);max-width:900px}
+table{border-collapse:collapse;width:100%;max-width:1100px;background:var(--card);font-size:15px}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}th{background:var(--shade)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;max-width:1100px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card b{display:block;margin-bottom:4px}
+.chip{display:inline-block;font-size:13px;font-weight:600;padding:2px 9px;border-radius:99px;color:var(--ok);background:var(--okbg)}
+.warn{color:var(--warn);background:var(--warnbg)}
+code{font:15px ui-monospace,Consolas,monospace;background:var(--shade);padding:1px 5px;border-radius:4px}
+svg{max-width:1100px;width:100%;height:auto}
+svg text{fill:var(--ink);font:13px system-ui,sans-serif}
+svg .box{fill:var(--card);stroke:var(--line);stroke-width:1.5}
+svg .main{fill:var(--accbg);stroke:var(--acc)}
+svg .gate{fill:var(--warnbg);stroke:var(--warn)}
+svg .line{stroke:var(--mute);stroke-width:1.5;fill:none;marker-end:url(#a)}
+svg .dash{stroke-dasharray:4 4}
+.nav{position:fixed;right:16px;bottom:12px;font-size:13px;color:var(--mute)}
+@media print{.slide{min-height:auto;page-break-after:always}.nav{display:none}}
+</style>
+</head>
+<body>
+
+<section class="slide">
+<div class="kicker">Agentic AI (26ECAC401) · Team 7 · Final review</div>
+<h1>ResearchGenie</h1>
+<p class="lead">It turns a research question into an evidence-grounded, citation-verified paper draft. A team of agents does the work on a 9B model on a laptop, and a human makes the decisions.</p>
+</section>
+
+<section class="slide">
+<div class="kicker">The problem</div>
+<h2>A chatbot writes fluent papers with made-up references</h2>
+<div class="grid">
+<div class="card"><b>It invents citations</b>It produces references that look plausible and are not real, and nothing checks them.</div>
+<div class="card"><b>Nothing is traceable</b>You cannot see which paper a claim came from.</div>
+<div class="card"><b>A failure costs everything</b>A 15-minute run that fails at minute 14 starts again from zero.</div>
+<div class="card"><b>It needs the cloud</b>Students pay per token, and their data leaves the machine.</div>
+</div>
+</section>
+
+<section class="slide">
+<div class="kicker">Architecture</div>
+<h2>Four agents in a pipeline, and three that work around it</h2>
+<svg viewBox="0 0 1100 360" role="img" aria-label="Architecture: Stage 0 advisor, then Discovery, approval, Writing, Verification, QA, final output; the Doctor, Dev Agent, library and gateway around it">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="currentColor" style="fill:var(--mute)"/></marker></defs>
+<rect class="box" x="10" y="130" width="130" height="64" rx="8"/><text x="75" y="157" text-anchor="middle">Stage 0</text><text x="75" y="176" text-anchor="middle">Trend Advisor</text>
+<rect class="box main" x="170" y="130" width="130" height="64" rx="8"/><text x="235" y="157" text-anchor="middle">Discovery</text><text x="235" y="176" text-anchor="middle">clarify · re-plan</text>
+<rect class="box gate" x="320" y="138" width="90" height="48" rx="8"/><text x="365" y="167" text-anchor="middle">Approve</text>
+<rect class="box main" x="430" y="130" width="130" height="64" rx="8"/><text x="495" y="157" text-anchor="middle">Writing</text><text x="495" y="176" text-anchor="middle">9-node graph</text>
+<rect class="box main" x="590" y="130" width="130" height="64" rx="8"/><text x="655" y="157" text-anchor="middle">Verification</text><text x="655" y="176" text-anchor="middle">DOI check</text>
+<rect class="box main" x="750" y="130" width="130" height="64" rx="8"/><text x="815" y="157" text-anchor="middle">QA</text><text x="815" y="176" text-anchor="middle">deterministic</text>
+<rect class="box" x="910" y="114" width="180" height="96" rx="8"/><text x="1000" y="140" text-anchor="middle">final/</text><text x="1000" y="160" text-anchor="middle">draft · PDF · evidence table</text><text x="1000" y="180" text-anchor="middle">decision brief</text>
+<path class="line" d="M140,162H168"/><path class="line" d="M300,162H318"/><path class="line" d="M410,162H428"/><path class="line" d="M560,162H588"/><path class="line" d="M720,162H748"/><path class="line" d="M880,162H908"/>
+<rect class="box" x="170" y="20" width="390" height="50" rx="8"/><text x="365" y="50" text-anchor="middle">Scholarly gateway: 4 APIs · pacing · credits · budget check · cache</text>
+<path class="line dash" d="M235,70V128"/>
+<rect class="box" x="590" y="20" width="290" height="50" rx="8"/><text x="735" y="50" text-anchor="middle">Library (memory) · events.jsonl ledger</text>
+<path class="line dash" d="M600,70L280,128"/>
+<rect class="box gate" x="170" y="270" width="250" height="56" rx="8"/><text x="295" y="294" text-anchor="middle">Doctor: diagnose → confirm</text><text x="295" y="313" text-anchor="middle">→ fix → resume</text>
+<path class="line dash" d="M420,290C520,280 560,230 560,196"/>
+<rect class="box" x="450" y="270" width="250" height="56" rx="8"/><text x="575" y="294" text-anchor="middle">Dev Agent: red test → patch</text><text x="575" y="313" text-anchor="middle">→ green → a human applies it</text>
+<rect class="box" x="730" y="270" width="360" height="56" rx="8"/><text x="910" y="294" text-anchor="middle">Surfaces: CLI · web · HTTP API · MCP server</text><text x="910" y="313" text-anchor="middle">· Claude Code / OpenClaw skill</text>
+</svg>
+</section>
+
+<section class="slide">
+<div class="kicker">Coverage</div>
+<h2>All 14 lab weeks run in one product</h2>
+<table>
+<tr><th>Week</th><th>Where it lives in ResearchGenie</th><th>Week</th><th>Where it lives in ResearchGenie</th></tr>
+<tr><td>1 Agent vs Chatbot</td><td>Clarify, re-plan, audit → revise</td><td>8 Parallel Swarm</td><td>Literature-card fan-out, gap-mining swarm</td></tr>
+<tr><td>2 Tool-Using</td><td>Model-chosen sources, one gateway, budget check</td><td>9 Deep Research</td><td>Full-text mining, evidence table, decision brief</td></tr>
+<tr><td>3 Skills</td><td>Contracts, prompts, headless CLI, Agent Skill</td><td>10 Cloud Ops</td><td>CI, container, Doctor, hosted demo</td></tr>
+<tr><td>4 Memory</td><td>Library + cache, reused by Discovery</td><td>11 SDLC Factory</td><td>Dev Agent ships APA 7</td></tr>
+<tr><td>5 MCP</td><td>Read-only MCP server, 6 tools</td><td>12 Governance</td><td>Approval gates, rollback, governance doc</td></tr>
+<tr><td>6 OpenClaw</td><td>Event ledger; research from chat</td><td>13 Discipline</td><td>Trend Advisor for 6 engineering fields</td></tr>
+<tr><td>7 Node Graph</td><td>Writing graph + Dev Agent graph</td><td>14 Capstone</td><td>One installable system, four entry points</td></tr>
+</table>
+</section>
+
+<section class="slide">
+<div class="kicker">Novelty</div>
+<h2>What is new here</h2>
+<div class="grid">
+<div class="card"><b>Never repairs a citation</b>Each reference is verified, invalid or unverifiable. Code checks it; the model does not.</div>
+<div class="card"><b>Self-healing, not self-guessing</b>The Doctor quotes its evidence, asks first, and resumes from the failed stage.</div>
+<div class="card"><b>An agent that improves the product</b>The Dev Agent shipped APA 7: red test first, guard tests, a human applies the diff.</div>
+<div class="card"><b>Memory that respects safety</b>Seeded past papers still pass the relevance gate.</div>
+<div class="card"><b>Gaps need agreement</b>A research gap counts only when several independent papers raise it.</div>
+<div class="card"><b>One next action</b>A deterministic brief tells the student exactly where their judgement is needed.</div>
+</div>
+</section>
+
+<section class="slide">
+<div class="kicker">Results</div>
+<h2>Measured, not predicted</h2>
+<div class="grid">
+<div class="card"><b>QA score</b>3.5–4.2 / 5 across real runs</div>
+<div class="card"><b>A full run</b>About 15 minutes on an RTX 4060 (8 GB)</div>
+<div class="card"><b>This round's live pass</b>Tool calling, Doctor recovery, the Dev Agent, fresh runs and the advisor: see <code>docs/evidence/live-pass/LIVE_PASS.md</code></div>
+<div class="card"><b>Engineering</b>CI on every push, the full test suite, and a container with local and cloud profiles</div>
+</div>
+</section>
+
+<section class="slide">
+<div class="kicker">Honest limits</div>
+<h2>What we have not solved</h2>
+<div class="grid">
+<div class="card"><span class="chip warn">Fixed order</span><br>The order of the stages is fixed in code, on purpose, for auditability. The model adapts inside each stage.</div>
+<div class="card"><span class="chip warn">9B model</span><br>Long sections sometimes fall short of the target length. Gemini is one setting away.</div>
+<div class="card"><span class="chip warn">No semantic search</span><br>The library uses full-text search, not embeddings.</div>
+<div class="card"><span class="chip warn">No login</span><br>The hosted demo is for the review only, and access to it is restricted.</div>
+</div>
+</section>
+
+<section class="slide">
+<div class="kicker">Try it</div>
+<h2>Three ways in</h2>
+<div class="grid">
+<div class="card"><b>Local</b><code>pip install -e .</code> then <code>researchgenie</code></div>
+<div class="card"><b>Docker</b><code>docker compose --profile local up</code></div>
+<div class="card"><b>From an agent</b>Claude Code / OpenClaw skill, or <code>researchgenie-mcp</code></div>
+</div>
+<p class="lead" style="margin-top:24px">github.com/Ayush-3103-AI/ResearchGenie</p>
+</section>
+
+<div class="nav">↑ ↓ or PgUp / PgDn</div>
+<script>
+const slides=[...document.querySelectorAll('.slide')];
+addEventListener('keydown',e=>{
+  const step={ArrowDown:1,PageDown:1,ArrowRight:1,' ':1,ArrowUp:-1,PageUp:-1,ArrowLeft:-1}[e.key];
+  if(!step)return;
+  e.preventDefault();
+  const i=slides.findIndex(s=>s.getBoundingClientRect().top>=-5);
+  const cur=i<0?slides.length-1:i;
+  slides[Math.max(0,Math.min(slides.length-1,cur+step))].scrollIntoView({behavior:'smooth'});
+});
+</script>
+</body>
+</html>

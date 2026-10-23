@@ -1,5 +1,7 @@
 # R3: the three live checks left
 
+**One command now does all of this:** `python scripts/live_pass.py` (on the machine with Ollama). It also runs the R4 and #27 checks, saves the evidence in `docs/evidence/live-pass/`, and with `--push` commits and pushes it. The steps below are the manual equivalent.
+
 R3 (#6, #10, #13, #16, #20, #22, #26) is built and tested on the branch `r3/integration`. Three acceptance criteria need a real model, and the machine R3 was built on had none. Run them on a machine with Ollama and `qwen3.5:9b` (or a Gemini key), record each result where it says, and then the branch can be merged.
 
 ## Setup
