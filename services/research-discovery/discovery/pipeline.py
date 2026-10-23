@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import json
 import math
 from typing import AsyncIterator, Awaitable, Callable
 
 import httpx
 
-from shared.utilities import scholarly_gateway
+from shared.utilities import library, scholarly_gateway
 
 from . import fulltext
 from .analysis import (analyze_gaps, economy_model, generate_queries,
@@ -22,6 +23,8 @@ from .sources import SOURCE_URLS, SOURCES, openalex
 FULLTEXT_MAX_ATTEMPTS = 40   # papers we try to fetch full text for
 VERIFY_RESULTS_PER_CANDIDATE = 8
 MAX_CANDIDATES_FOR_ANALYSIS = 5  # caps final-synthesis output size; see D-009
+LIBRARY_SOURCE = "Research library"  # the source of a past paper seeded from the library (#19)
+LIBRARY_SEED_LIMIT = 10
 # The query each source reads from a queries dict (see discovery/sources/).
 _QUERY_FIELD = {"s2": "keyword", "openalex": "keyword", "pubmed": "pubmed", "arxiv": "arxiv"}
 
@@ -131,7 +134,9 @@ async def _collect_fulltext(corpus: list[Paper], gateway_run: scholarly_gateway.
     """Fetch Discussion/Future sections for the best full-text candidates.
     Yields fulltext_progress events, plus the gateway's own rate_limited /
     provider_exhausted events as they queue up."""
-    targets = [p for p in corpus if fulltext.is_candidate(p)][:FULLTEXT_MAX_ATTEMPTS]
+    # A paper already holding text (reused from the library, #19) is not fetched again.
+    targets = [p for p in corpus
+               if not p.future_text and fulltext.is_candidate(p)][:FULLTEXT_MAX_ATTEMPTS]
     if not targets:
         return
     # Every fetch starts at Europe PMC, so its policy sets the fan-out width;
@@ -245,6 +250,24 @@ async def _search_round(selected: list, queries: dict[str, dict], per_source: in
             yield key, result
 
 
+def _library_papers(question: str) -> list[Paper]:
+    """Papers past runs selected whose title or abstract matches the question
+    (#19), best match first. They join the candidate pool before the
+    relevance gate, which screens them like any search result."""
+    return [Paper(title=row["title"] or "", abstract=row["abstract"], year=row["year"],
+                  venue=row["venue"], doi=row["doi"], citations=row["citations"],
+                  authors=json.loads(row["authors"] or "[]"), source=LIBRARY_SOURCE,
+                  relevance_rank=i)
+            for i, row in enumerate(library.search_papers(question, LIBRARY_SEED_LIMIT))]
+
+
+def _library_error(error: Exception) -> dict:
+    # The library is a convenience; never fail a run over it.
+    return {"type": "source_error", "source": LIBRARY_SOURCE,
+            "message": f"The research library could not be read ({type(error).__name__}) "
+                       "— continuing without it."}
+
+
 def _replan_feedback(rejected: list[Paper], accepted: int, wanted: int) -> str:
     """What the second query generation is told about the first search (#15)."""
     lines = [f"The first search found only {accepted} on-topic paper(s); {wanted} are needed."]
@@ -312,11 +335,15 @@ async def run_pipeline(question: str, source_keys: list[str],
                        transport: httpx.AsyncBaseTransport | None = None,
                        approve: Approver | None = None,
                        domain: str | None = None,
-                       preferred_databases: list[str] | None = None) -> AsyncIterator[dict]:
+                       preferred_databases: list[str] | None = None,
+                       memory: bool = True) -> AsyncIterator[dict]:
     """`transport` is a test seam (httpx.MockTransport); production leaves it None.
     `approve` pauses the run after screening for the paper approval step
     (#17); without it the corpus is approved automatically. `domain` and
-    `preferred_databases` steer which of `source_keys` are searched (#16)."""
+    `preferred_databases` steer which of `source_keys` are searched (#16).
+    `memory` reads the research library (#19): past papers matching the
+    question join the candidates, and a stored excerpt replaces a full-text
+    fetch. Off, the library is never read."""
     selected = [(k, *SOURCES[k]) for k in source_keys if k in SOURCES]
     if not selected:
         raise PipelineError("Select at least one literature source.")
@@ -362,7 +389,14 @@ async def run_pipeline(question: str, source_keys: list[str],
         raise PipelineError("No papers found in any source. Try rephrasing the question "
                             "or enabling more sources.")
 
-    unique = dedupe(all_papers)
+    seeded: list[Paper] = []
+    if memory:
+        try:
+            seeded = _library_papers(question)
+        except Exception as error:
+            yield _library_error(error)
+    # Search results first, so a past paper found again keeps the search's fields.
+    unique = dedupe(all_papers + seeded)
 
     # Hard relevance gate (DECISIONS.md D-018): screen every deduped candidate
     # against the research question + LLM-generated keyword query + any
@@ -429,6 +463,8 @@ async def run_pipeline(question: str, source_keys: list[str],
             "Try rephrasing the question or providing more specific keywords."
         )
 
+    # Past papers only the library supplied, and the gate let through.
+    seeded_count = sum(p.source == LIBRARY_SOURCE for p in accepted)
     ranked = rank(accepted, per_source)
     corpus = ranked[:corpus_size]
     for i, p in enumerate(corpus, start=1):
@@ -445,6 +481,24 @@ async def run_pipeline(question: str, source_keys: list[str],
     yield {"type": "corpus", "total_found": len(all_papers), "unique": len(unique),
            "relevant": len(accepted), "analyzed": len(corpus),
            "papers": [p.to_client_dict() for p in corpus]}
+
+    reused = 0
+    if memory and fulltext_enabled:
+        try:
+            stored = library.stored_excerpts([p.doi for p in corpus if p.doi])
+        except Exception as error:
+            stored = {}
+            yield _library_error(error)
+        for p in corpus:
+            if p.doi in stored:
+                p.future_text = stored[p.doi]
+                reused += 1
+    if reused or seeded_count:
+        # count: library reads this run used, i.e. reused_excerpts + seeded_papers.
+        yield {"type": "memory_hit", "count": reused + seeded_count,
+               "reused_excerpts": reused, "seeded_papers": seeded_count,
+               "message": f"Research library: reused {reused} stored excerpt(s); "
+                          f"{seeded_count} past paper(s) passed the relevance gate."}
 
     candidates: list[dict] = []
     verification_papers: list[Paper] = []

@@ -1,7 +1,7 @@
 """Headless, JSON-speaking CLI (#10), for agents, scripts and the skill.
 
     researchgenie run -q "question" [--every-request-field ...] [--length short]
-                      [--no-cache] [--detach] [--json]
+                      [--no-cache] [--no-memory] [--detach] [--json]
     researchgenie status <run id or folder> [--json]
     researchgenie result <run id or folder> [--json]
     researchgenie resume <run id or folder> [--from STAGE] (--json | --detach)
@@ -81,6 +81,9 @@ def _add_request_options(parser: argparse.ArgumentParser) -> None:
             flags = ["--format", *flags]
         if name == "year_range":
             options.update(type=_year_range, metavar="START-END")
+        elif info.annotation is bool:  # a default-on switch: --no-<name> turns it off
+            flags = ["--no-" + name.replace("_", "-")]
+            options["action"] = "store_false"
         elif typing.get_origin(info.annotation) is list:
             options.update(action="append", metavar=name.rstrip("s").upper(),
                            help="repeat for more than one")

@@ -3,7 +3,7 @@ selected, in one SQLite file (standard library sqlite3 + FTS5) next to the
 CLI's config, at ~/.researchgenie/library.sqlite.
 
     papers     (doi PK, title, abstract, year, venue, discussion_excerpt,
-                fulltext_status, first_seen)
+                fulltext_status, first_seen, authors (JSON list), citations)
     runs       (run_id PK, question, created, overall_quality, draft_status, run_dir)
     run_papers (run_id, doi, selected)
     papers_fts (title, abstract)   runs_fts (question)
@@ -15,6 +15,9 @@ a folder replaces its rows, so a backfill can be repeated safely. A paper
 with no DOI is not stored: the DOI is the only key that is the same across
 runs. Folders without 01_discovery/result.json (the flattened copies under
 docs/research-papers/) give a run row with no papers.
+
+Discovery reads it back (#19): stored_excerpts() spares a paper's full-text
+fetch, and search_papers() seeds past papers into the candidate pool.
 
 Literature cards are deliberately NOT stored. Their cache key includes the
 question-specific tag definitions (see build_cached_literature_card() in
@@ -40,7 +43,8 @@ from researchgenie.config import CONFIG_DIR
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS papers (
     doi TEXT PRIMARY KEY, title TEXT, abstract TEXT, year INTEGER, venue TEXT,
-    discussion_excerpt TEXT, fulltext_status TEXT, first_seen TEXT);
+    discussion_excerpt TEXT, fulltext_status TEXT, first_seen TEXT,
+    authors TEXT, citations INTEGER);
 CREATE TABLE IF NOT EXISTS runs (
     run_id TEXT PRIMARY KEY, question TEXT, created TEXT, overall_quality REAL,
     draft_status TEXT, run_dir TEXT);
@@ -49,6 +53,9 @@ CREATE TABLE IF NOT EXISTS run_papers (
 CREATE VIRTUAL TABLE IF NOT EXISTS papers_fts USING fts5(doi UNINDEXED, title, abstract);
 CREATE VIRTUAL TABLE IF NOT EXISTS runs_fts USING fts5(run_id UNINDEXED, question);
 """
+# Added to `papers` after the first release (#19); connect() adds them to an
+# older library file, so a seeded past paper can be cited with its authors.
+_ADDED_PAPER_COLUMNS = {"authors": "TEXT", "citations": "INTEGER"}
 
 # Words every research question shares; left in, they would make every past
 # run "related" to every new one.
@@ -70,6 +77,10 @@ def connect(path: Path | str | None = None) -> sqlite3.Connection:
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA)
+    have = {row["name"] for row in conn.execute("PRAGMA table_info(papers)")}
+    for column, kind in _ADDED_PAPER_COLUMNS.items():
+        if column not in have:
+            conn.execute(f"ALTER TABLE papers ADD COLUMN {column} {kind}")
     return conn
 
 
@@ -126,7 +137,7 @@ def import_run(run_dir: Path | str, conn: sqlite3.Connection | None = None) -> b
                 # A later run without the excerpt must not erase one an
                 # earlier run already extracted.
                 conn.execute("""
-                    INSERT INTO papers VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO papers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(doi) DO UPDATE SET
                         title = excluded.title,
                         abstract = COALESCE(excluded.abstract, papers.abstract),
@@ -135,9 +146,13 @@ def import_run(run_dir: Path | str, conn: sqlite3.Connection | None = None) -> b
                         discussion_excerpt = COALESCE(excluded.discussion_excerpt, papers.discussion_excerpt),
                         fulltext_status = CASE WHEN COALESCE(excluded.discussion_excerpt,
                             papers.discussion_excerpt) IS NULL THEN 'none' ELSE 'excerpt' END,
-                        first_seen = MIN(papers.first_seen, excluded.first_seen)
+                        first_seen = MIN(papers.first_seen, excluded.first_seen),
+                        authors = COALESCE(excluded.authors, papers.authors),
+                        citations = COALESCE(excluded.citations, papers.citations)
                 """, (doi, paper.get("title"), paper.get("abstract"), paper.get("year"),
-                      paper.get("venue"), excerpt, "excerpt" if excerpt else "none", created))
+                      paper.get("venue"), excerpt, "excerpt" if excerpt else "none", created,
+                      json.dumps(paper["authors"]) if paper.get("authors") else None,
+                      paper.get("citations")))
                 row = conn.execute("SELECT title, abstract FROM papers WHERE doi = ?", (doi,)).fetchone()
                 conn.execute("DELETE FROM papers_fts WHERE doi = ?", (doi,))
                 conn.execute("INSERT INTO papers_fts VALUES (?, ?, ?)", (doi, row["title"], row["abstract"]))
@@ -200,6 +215,24 @@ def search_papers(text: str, limit: int = 10) -> list[dict[str, Any]]:
     finally:
         conn.close()
     return [dict(row) for row in rows]
+
+
+def stored_excerpts(dois: list[str]) -> dict[str, str]:
+    """{doi: discussion excerpt} for each of `dois` the library holds an
+    excerpt for, keyed by the DOI as given."""
+    wanted = {doi: _normalise_doi(doi) for doi in dois}
+    keys = sorted({key for key in wanted.values() if key})
+    if not keys:
+        return {}
+    conn = connect()
+    try:
+        rows = conn.execute(
+            "SELECT doi, discussion_excerpt FROM papers WHERE discussion_excerpt IS NOT NULL "
+            f"AND doi IN ({', '.join('?' * len(keys))})", keys).fetchall()
+    finally:
+        conn.close()
+    found = {row["doi"]: row["discussion_excerpt"] for row in rows}
+    return {doi: found[key] for doi, key in wanted.items() if key in found}
 
 
 def describe_run(run: dict[str, Any]) -> str:

@@ -55,7 +55,8 @@ def test_run_takes_every_request_field_and_returns_the_result_as_json(capsys, ou
         "--publication-type", "journal", "--target-venue", "Nature", "--deadline", "2026-12-01",
         "--domain", "biology", "--year-range", "2015-2024", "--preferred-databases", "pubmed",
         "--language", "en", "--length", "short", "--keywords", "fasting", "--keywords", "memory",
-        "--excluded-topics", "mice", "--clarify", "skip", "--approval", "auto", "--json")
+        "--excluded-topics", "mice", "--clarify", "skip", "--approval", "auto", "--no-memory",
+        "--json")
     assert code == headless.EXIT_OK
     assert report["state"] == "completed" and report["draft_status"] == "complete"
     assert report["scores"]["overall"] == 5.0
@@ -68,6 +69,7 @@ def test_run_takes_every_request_field_and_returns_the_result_as_json(capsys, ou
     assert saved["excluded_topics"] == ["mice"] and saved["preferred_databases"] == ["pubmed"]
     assert saved["publication_type"] == "journal" and saved["target_venue"] == "Nature"
     assert saved["max_draft_length"] > 0 and saved["approval"] == "auto"
+    assert saved["memory"] is False
 
     code, status = _cli(capsys, "status", report["run_id"], "--json")
     assert code == 0 and status["state"] == "completed"
