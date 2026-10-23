@@ -36,8 +36,8 @@ from pydantic import BaseModel  # noqa: E402
 
 from orchestrator import doctor, run_registry  # noqa: E402
 from orchestrator.pipeline import (  # noqa: E402
-    FINAL_FILES, PipelineError, find_run_directory, plan_resume, resume_pipeline, run_pipeline,
-    run_trend_advisor_stage,
+    FINAL_FILES, PipelineError, check_budget, find_run_directory, plan_resume, resume_pipeline,
+    run_pipeline, run_trend_advisor_stage,
 )
 from orchestrator.pipeline import discovery_service  # noqa: E402 — for the clarify step
 from researchgenie import advisor_cli  # noqa: E402
@@ -190,6 +190,16 @@ async def clarify_research_question(check: QuestionCheck) -> dict[str, object]:
     if clarified is None:
         return {"available": False, "specific": None, "missing": [], "suggested_question": ""}
     return {"available": True, **clarified}
+
+
+@app.post("/research/budget")
+async def check_research_budget(request: ResearchRequest) -> dict[str, object]:
+    """The budget check on its own (#7), called by the page before it starts
+    a run: plan "reduced" means the known OpenAlex balance can't cover it, so
+    the page offers the free key or the reduced plan. Re-reads the saved
+    config first, so a key added with `researchgenie config` counts at once."""
+    rg_config.apply_scholarly(rg_config.load())
+    return check_budget(request)
 
 
 @app.get("/research/runs/{run_id}")

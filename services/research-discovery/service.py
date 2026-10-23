@@ -21,7 +21,7 @@ from shared.contracts.discovery_contract import (  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from discovery.analysis import clarify_question  # noqa: E402, F401 — the orchestrator's clarify step
 from discovery.models import PipelineError  # noqa: E402
-from discovery.pipeline import run_pipeline  # noqa: E402
+from discovery.pipeline import MAX_CANDIDATES_FOR_ANALYSIS, run_pipeline  # noqa: E402, F401 — the budget check's estimate (#7)
 
 DEFAULT_SOURCES = ["s2", "openalex", "pubmed", "arxiv"]
 PER_SOURCE_RESULTS = 40
@@ -62,7 +62,8 @@ async def run_discovery(request: DiscoveryRequest,
                                     fulltext_enabled=True, quality="balanced",
                                     keywords=request.keywords, approve=approve,
                                     domain=request.domain,
-                                    preferred_databases=request.preferred_databases):
+                                    preferred_databases=request.preferred_databases,
+                                    verification_searches=request.verification_searches):
         if event["type"] == "queries":
             queries = event["queries"]
         elif event["type"] == "tool_plan":

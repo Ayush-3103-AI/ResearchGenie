@@ -284,6 +284,16 @@ async def _async_true():
     return True
 
 
+def test_the_budget_endpoint_tells_the_page_when_to_offer_the_key_or_the_reduced_plan(client, monkeypatch):
+    monkeypatch.setattr(orchestrator_api.rg_config, "load", lambda: orchestrator_api.rg_config.Config())
+    monkeypatch.setattr(orchestrator_api.scholarly_gateway, "balance", lambda: 30)
+    body = client.post("/research/budget", json={"research_question": "What is X?"}).json()
+    assert body["plan"] == "reduced" and body["balance"] == 30 and body["estimated_credits"] == 71
+    chosen = client.post("/research/budget", json={"research_question": "What is X?",
+                                                   "budget_plan": "full"}).json()
+    assert chosen["plan"] == "full"
+
+
 def test_a_web_run_waits_for_approval_and_approve_continues_it(monkeypatch):
     # One event loop for the whole test (the run waits on a future across requests);
     # the lifespan then runs, so keep it off the real ~/.researchgenie config.

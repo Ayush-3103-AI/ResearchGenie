@@ -27,6 +27,9 @@ class DiscoveryRequest(BaseModel):
     keywords: list[str] = Field(default_factory=list)
     excluded_topics: list[str] = Field(default_factory=list)
     corpus_size: int = Field(ge=6, le=9)
+    # OpenAlex verification searches the budget check allowed (#7); the
+    # rest search Crossref. None: no cap.
+    verification_searches: int | None = Field(default=None, ge=0)
 
 
 class PaperMetadata(BaseModel):

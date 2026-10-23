@@ -481,6 +481,7 @@ textarea.lg { font-size: 16px; min-height: 110px; }
           <div class="field"><label for="question">Research question</label>
             <textarea id="question" class="lg" placeholder="e.g. What are the effects of intermittent fasting on cognitive performance?"></textarea></div>
           <div id="clarify" class="banner info" hidden><span class="grow" id="clarifyText"></span><button class="btn sm ghost" type="button" id="clarifyAccept">Use suggestion</button><button class="btn sm ghost" type="button" id="clarifyEdit">Edit it</button><button class="btn sm quiet" type="button" id="clarifyKeep">Keep mine</button></div>
+          <div id="budget" class="banner warn" hidden><span class="grow" id="budgetText"></span><button class="btn sm ghost" type="button" id="budgetKey">Add key</button><button class="btn sm ghost" type="button" id="budgetReduced">Run reduced plan</button></div>
           <div class="options" id="directOptions"></div>
           <div class="form-foot">
             <button class="btn primary" type="submit" data-needs-model>Run the pipeline</button>
@@ -1069,6 +1070,15 @@ $("clarifyAccept").onclick = () => resubmit(clarifyPending.check.suggested_quest
 $("clarifyKeep").onclick = () => resubmit(clarifyPending.original);
 $("clarifyEdit").onclick = () => { $("question").value = clarifyPending.check.suggested_question; $("question").focus(); };
 
+// Budget check (#7): when the known OpenAlex balance can't cover the run,
+// offer the free key (the next submit checks again) or the reduced plan.
+let budgetPlan = "auto";
+$("budgetKey").onclick = () => {
+  window.open("https://openalex.org/settings/api", "_blank", "noopener");
+  $("budgetText").innerHTML = "Copy your free key, run <code>researchgenie config</code> and paste it (takes 1 minute), then press <b>Run the pipeline</b> again.";
+};
+$("budgetReduced").onclick = () => { budgetPlan = "reduced"; $("directForm").requestSubmit($("directForm").querySelector('[type="submit"]')); };
+
 $("directForm").onsubmit = async (e) => {
   e.preventDefault();
   const question = $("question").value.trim();
@@ -1090,11 +1100,20 @@ $("directForm").onsubmit = async (e) => {
     }
     record = clarification(question, check, "keep");
   }
+  if (budgetPlan === "auto") {
+    const budget = await api("/research/budget", { research_question: question, ...readOptions("d") }).catch(() => null);
+    if (budget?.plan === "reduced") {
+      $("budgetText").textContent = `${budget.reason} Add your free OpenAlex key (takes 1 minute), or run the reduced plan: verification searches use Crossref instead of OpenAlex.`;
+      $("budget").hidden = false;
+      return;
+    }
+  }
   busy(btn, true, "Starting…");
   hideAfter("shortlist", "lockin", "results"); $("notice").hidden = true;
   try {
-    const { run_id } = await api("/research/runs", { research_question: question, ...readOptions("d"), clarify: "ask", clarification: record, approval: "ask" });
+    const { run_id } = await api("/research/runs", { research_question: question, ...readOptions("d"), clarify: "ask", clarification: record, approval: "ask", budget_plan: budgetPlan });
     clarifyPending = null; $("clarify").hidden = true;
+    budgetPlan = "auto"; $("budget").hidden = true;
     resetProgress();
     collapse("start", `Question: <b>${esc(question)}</b>`);
     follow(run_id, showResults);
@@ -1106,6 +1125,7 @@ $("startOver").onclick = () => {
   stopTimer();
   const wasLive = ORDER.some((k) => st[k].state === "running");
   runId = null; shortlist = null; clarifyPending = null; $("clarify").hidden = true;
+  budgetPlan = "auto"; $("budget").hidden = true;
   history.replaceState(null, "", location.pathname);
   hideAfter("feed", "shortlist", "lockin", "results");
   $("chatLog").innerHTML = ""; $("runError").hidden = true; $("doctor").hidden = true; $("elapsed").hidden = true;
