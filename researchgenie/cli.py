@@ -8,6 +8,12 @@
     researchgenie resume <run folder or id> [--from STAGE]
                                               Resume a failed run from the
                                               failed stage (or STAGE).
+    researchgenie cache clear                 Empty the scholarly response cache.
+    researchgenie run|status|result ...       Headless, JSON-speaking commands
+                                              (researchgenie/headless.py).
+    --no-cache (any command)                  Fetch scholarly answers fresh.
+    --no-memory (a research run)              Don't let Discovery read the
+                                              research library (#19).
 
 Everything downstream of "ready" reuses the existing, already-tested
 pipeline (orchestrator.pipeline.run_pipeline) unchanged — this module is
@@ -18,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -34,23 +41,25 @@ from rich.live import Live  # noqa: E402
 from rich.markup import escape  # noqa: E402
 from rich.prompt import Confirm, IntPrompt, Prompt  # noqa: E402
 
+from orchestrator import decision_brief  # noqa: E402
 from orchestrator.pipeline import (  # noqa: E402
-    DEFAULT_OUTPUT_ROOT, STAGE_NAMES, PipelineError, find_run_directory, resume_pipeline,
-    run_pipeline,
+    DEFAULT_OUTPUT_ROOT, STAGE_NAMES, PipelineError, check_budget, find_run_directory,
+    resume_pipeline, run_pipeline,
 )
 from orchestrator.pipeline import discovery_service  # noqa: E402 — for the clarify step
 from researchgenie import config as rg_config  # noqa: E402
 from researchgenie import ollama_manager as om  # noqa: E402
-from researchgenie.setup_wizard import run_setup_wizard  # noqa: E402
+from researchgenie.setup_wizard import run_setup_wizard, setup_scholarly_access  # noqa: E402
 from researchgenie.theme import ACCENT, ERROR, MUTED, OK, WARN  # noqa: E402
 from researchgenie.tui import (  # noqa: E402
-    PipelineView, render_approval_table, render_banner, render_completion, render_failure,
-    render_provider_status, render_summary,
+    PipelineView, render_approval_table, render_banner, render_brief, render_completion,
+    render_failure, render_provider_status, render_summary,
 )
 from shared.contracts.pipeline_contract import Clarification, ResearchRequest  # noqa: E402
-from shared.utilities import library, scholarly_gateway  # noqa: E402
+from shared.utilities import library, response_cache, scholarly_gateway  # noqa: E402
 
-_TARGET_FORMATS = ["IEEE", "Springer"]
+# IEEE and Springer are numbered styles; APA is APA 7 author-date (#26).
+_TARGET_FORMATS = ["IEEE", "Springer", "APA"]
 
 
 def _load_word_budget():
@@ -108,7 +117,7 @@ def _ensure_ready(console: Console, config: rg_config.Config) -> bool:
     return ready
 
 
-def _collect_request(console: Console) -> ResearchRequest:
+def _collect_request(console: Console, memory: bool = True) -> ResearchRequest:
     console.print()
     question = Prompt.ask("[bold]What are you researching?[/bold]")
     while not question.strip():
@@ -120,9 +129,11 @@ def _collect_request(console: Console) -> ResearchRequest:
     )
     corpus_size = max(6, min(9, corpus_size))
 
-    console.print("Paper format: [1] IEEE  [2] Springer")
-    format_choice = Prompt.ask("Select", choices=["1", "2"], default="1")
-    target_format = "IEEE" if format_choice == "1" else "Springer"
+    console.print("Paper format: " + "  ".join(
+        f"[{i}] {name}" for i, name in enumerate(_TARGET_FORMATS, start=1)))
+    format_choice = Prompt.ask("Select", choices=[str(i) for i in range(1, len(_TARGET_FORMATS) + 1)],
+                               default="1")
+    target_format = _TARGET_FORMATS[int(format_choice) - 1]
 
     console.print(
         "\nPaper length: "
@@ -137,7 +148,7 @@ def _collect_request(console: Console) -> ResearchRequest:
     return ResearchRequest(
         research_question=question, corpus_size=corpus_size, target_format=target_format,
         max_draft_length=target_words, clarify="ask", clarification=clarification,
-        approval="ask",
+        approval="ask", memory=memory,
     )
 
 
@@ -175,6 +186,24 @@ def _clarify(console: Console, question: str) -> tuple[str, Clarification]:
     else:
         chosen, decision = question, "keep"
     return chosen, Clarification(original_question=question, decision=decision, **clarified)
+
+
+def _budget_choice(console: Console, config: rg_config.Config,
+                   request: ResearchRequest) -> ResearchRequest:
+    """The budget check before the run (#7): when the known OpenAlex balance
+    can't cover it, offer the free key or the reduced plan."""
+    check = check_budget(request)
+    if check["plan"] == "full":
+        return request
+    console.print(f"\n[{WARN}]{escape(check['reason'])}[/{WARN}]")
+    console.print("[1] Add your free OpenAlex key (takes 1 minute)  "
+                  "[2] Run the reduced plan (verification searches use Crossref)")
+    if Prompt.ask("Select", choices=["1", "2"], default="1") == "2":
+        return request.model_copy(update={"budget_plan": "reduced"})
+    setup_scholarly_access(console, config)
+    rg_config.save(config)
+    rg_config.apply_scholarly(config)
+    return request  # the run checks again, now with the key (or reduces if none was added)
 
 
 def _provider_label(config: rg_config.Config) -> str:
@@ -235,9 +264,8 @@ async def _run_research(console: Console, request: ResearchRequest | None,
             run_directory=str(directory) if directory
             else str(ROOT / "outputs") + " (see the most recent run folder)",
         )
-        if directory:
-            console.print(f"[{MUTED}]Resume it from the failed stage with:[/{MUTED}] "
-                          f"researchgenie resume {run_id}")
+        if directory:  # the brief's one next action points to the Doctor (#12)
+            render_brief(console, decision_brief.build_brief(directory))
         return
 
     if result is None:
@@ -264,13 +292,14 @@ async def _run_research(console: Console, request: ResearchRequest | None,
         evidence_limited_sections=draft_meta.evidence_limited_sections,
         broken_sections=draft_meta.broken_sections,
     )
+    render_brief(console, decision_brief.build_brief(Path(result.run_directory)))
 
 
-def _run_app(console: Console, config: rg_config.Config) -> None:
+def _run_app(console: Console, config: rg_config.Config, memory: bool = True) -> None:
     render_banner(console)
     render_provider_status(console, scholarly_gateway.provider_status())
     console.print(f"[{OK}]Ready to research.[/{OK}]\n")
-    request = _collect_request(console)
+    request = _collect_request(console, memory)
     render_summary(
         console, question=request.research_question, corpus_size=request.corpus_size,
         target_format=request.target_format, provider_label=_provider_label(config),
@@ -279,7 +308,7 @@ def _run_app(console: Console, config: rg_config.Config) -> None:
     if not Confirm.ask("\n[bold]Start research?[/bold]", default=True):
         console.print(f"[{MUTED}]Cancelled.[/{MUTED}]")
         return
-    asyncio.run(_run_research(console, request))
+    asyncio.run(_run_research(console, _budget_choice(console, config, request)))
 
 
 def _library_command(console: Console, args: list[str]) -> None:
@@ -330,6 +359,17 @@ def main() -> None:
     console = Console(legacy_windows=False)
     args = sys.argv[1:]
 
+    if "--no-cache" in args:  # any command, anywhere on the line
+        args.remove("--no-cache")
+        os.environ["RESEARCHGENIE_NO_CACHE"] = "1"
+    from researchgenie import headless  # imports this module's helpers
+    if headless.is_headless(args):
+        sys.exit(headless.main(args))
+    if args[:2] == ["cache", "clear"]:
+        count = response_cache.clear()
+        console.print(f"[{OK}]Removed {count} cached response(s) from "
+                      f"{escape(str(response_cache.cache_path()))}[/{OK}]")
+        return
     if args[:1] == ["library"]:
         _library_command(console, args[1:])
         return
@@ -351,7 +391,7 @@ def main() -> None:
     if not _ensure_ready(console, config):
         sys.exit(1)
 
-    _run_app(console, config)
+    _run_app(console, config, memory="--no-memory" not in args)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,31 @@
+{
+  "run_id": "cf0fce1893454ab494955e48a642b203",
+  "research_question": "What are the effects of intermittent fasting on cognitive performance?",
+  "timings": {
+    "discovery_seconds": 239.5,
+    "writing_seconds": 1548.4,
+    "verification_seconds": 3.1,
+    "quality_assurance_seconds": 0.0
+  },
+  "overall_quality_score": 3.5,
+  "draft_status": "complete",
+  "target_words": null,
+  "actual_words": 3357,
+  "length_status": null,
+  "evidence_limited_sections": [],
+  "broken_sections": [],
+  "duplicate_sections": [],
+  "credits_used": {
+    "PubMed (NCBI)": 0,
+    "OpenAlex": 60,
+    "Europe PMC": 0,
+    "Open-access host": 0,
+    "Crossref": 0
+  },
+  "memory": {
+    "enabled": true,
+    "count": 5,
+    "reused_excerpts": 3,
+    "seeded_papers": 2
+  }
+}

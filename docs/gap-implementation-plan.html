@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gap Implementation Plan</title>
+<style>
+:root{--bg:#fbfaf7;--card:#fff;--ink:#1d1d1b;--mute:#5d5b55;--line:#e3e0d8;--shade:#f3f1ea;--acc:#3d4fa3;--accbg:#e9ecf8;
+--ok:#1f7a4d;--okbg:#e6f3ec;--part:#9a6100;--partbg:#fbf0dc;--no:#a23a2a;--nobg:#f8e6e2}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161614;--card:#1f1f1c;--ink:#ecebe6;--mute:#a7a59d;--line:#34332e;--shade:#26251f;--acc:#9eabf0;--accbg:#232a47;
+--ok:#6fcf9b;--okbg:#1d3328;--part:#e9b65c;--partbg:#3a2e17;--no:#ef8f7f;--nobg:#3d211c}}
+:root[data-theme="dark"]{--bg:#161614;--card:#1f1f1c;--ink:#ecebe6;--mute:#a7a59d;--line:#34332e;--shade:#26251f;--acc:#9eabf0;--accbg:#232a47;
+--ok:#6fcf9b;--okbg:#1d3328;--part:#e9b65c;--partbg:#3a2e17;--no:#ef8f7f;--nobg:#3d211c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1000px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:25px;margin:0 0 6px}h2{font-size:20px;margin:44px 0 12px}h3{font-size:17px;margin:0}h4{font-size:14px;margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute)}
+.sub{color:var(--mute);margin:0 0 20px}
+code{font:13px/1.4 ui-monospace,Consolas,monospace;background:var(--shade);padding:1px 4px;border-radius:4px;word-break:break-word}
+pre{font:12.5px/1.5 ui-monospace,Consolas,monospace;background:var(--shade);padding:10px 12px;border-radius:6px;overflow-x:auto;margin:6px 0}
+table{width:100%;border-collapse:collapse;background:var(--card)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--shade);font-weight:600}
+.wrap{overflow-x:auto}
+.ws{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:22px 0;padding:16px 18px;break-inside:avoid}
+.ws-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.chip{font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap;color:var(--acc);background:var(--accbg)}
+.s{color:var(--ok);background:var(--okbg)}.m{color:var(--part);background:var(--partbg)}.l{color:var(--no);background:var(--nobg)}
+.why{border-left:3px solid var(--acc);padding:4px 12px;margin:8px 0;background:var(--accbg);border-radius:0 6px 6px 0}
+ul,ol{margin:4px 0;padding-left:22px}li{margin:2px 0}
+.risk{font-size:14px;color:var(--mute)}
+.callout{background:var(--partbg);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:14px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>ResearchGenie: Gap Implementation Plan</h1>
+<p class="sub">This plan maps every open lab gap to a buildable change that makes the product better for its users. It is grounded in the code as of 18 Oct 2026. Size: S = under ~150 lines, M = 150–500, L = over 500 or a new subsystem.</p>
+
+<div class="callout"><b>Principle.</b> No feature exists only for marks. Each workstream fixes a real product pain: a 15-minute run lost to one failure, vague questions that waste a run, thin corpora, claims nobody can audit, and an install that evaluators can't do. Each workstream reuses code already in the repo (<code>llm_provider</code>, <code>discovery/sources</code>, <code>_http_retry</code>, <code>ollama_manager</code>, LangGraph, the contracts) and adds at most one new dependency (<code>mcp</code>).</div>
+
+<h2>The 8 workstreams at a glance</h2>
+<div class="wrap"><table>
+<tr><th>#</th><th>Workstream</th><th>Product win</th><th>Closes gaps (labs)</th><th>Size</th></tr>
+<tr><td>1</td><td>Run Ledger &amp; Resume</td><td>A run that fails at stage 3 resumes in minutes and does not cost a full 15-minute redo. History survives a server restart.</td><td>4, 6 (L6, L10, L12)</td><td><span class="chip s">S–M</span></td></tr>
+<tr><td>2</td><td>Doctor: self-healing runs</td><td>A student with no devops knowledge clicks "Diagnose &amp; fix" and the run recovers.</td><td>2 (L10)</td><td><span class="chip m">M</span></td></tr>
+<tr><td>3</td><td>Ship it: container, CI, cloud demo</td><td>Evaluators open a URL instead of installing Ollama.</td><td>1, 3, B-19 (L10, L11, L14)</td><td><span class="chip m">M</span></td></tr>
+<tr><td>4</td><td>Adaptive Discovery</td><td>Fewer vague questions, fewer thin or off-domain corpora, fewer rate-limit failures.</td><td>12, 13, 14, 16 (L1, L2, L13)</td><td><span class="chip m">M</span></td></tr>
+<tr><td>5</td><td>Research Library (memory)</td><td>Repeat or related runs are faster, and past work is searchable.</td><td>9 (L4)</td><td><span class="chip m">M</span></td></tr>
+<tr><td>6</td><td>Scholarly connector + MCP server</td><td>Fewer false "unverifiable" citations. The library and the DOI checker work from Claude Desktop or any MCP client.</td><td>10, 11 (L5)</td><td><span class="chip m">M</span></td></tr>
+<tr><td>7</td><td>Auditable output: evidence table, paper approval, governance</td><td>Users see where each claim comes from and can steer the corpus before writing starts.</td><td>6-part, 7, 8, 15 (L9, L12)</td><td><span class="chip s">S–M</span></td></tr>
+<tr><td>8</td><td>Dev Agent (agentic SDLC)</td><td>An agent that builds real product features: its demo ticket adds APA citation style.</td><td>5 (L11)</td><td><span class="chip l">L</span></td></tr>
+<tr><td>9</td><td>Live verification pass</td><td>Turns "built and tested" into "shown working".</td><td>17–22 (L8, L9, L13, L14)</td><td><span class="chip s">ops</span></td></tr>
+</table></div>
+
+<!-- WS1 -->
+<section class="ws">
+<div class="ws-head"><h3>WS1 — Run Ledger &amp; Resume</h3><span class="chip s">S–M</span><span class="chip">L6 · L10 · L12</span></div>
+<div class="why"><b>Pain today:</b> events live only in <code>run_registry._runs</code> (a dict), so a server restart loses every run's history. If Verification fails at minute 14, nothing can be re-run except the whole pipeline. <code>run_pipeline</code> has no resume path.</div>
+<h4>Build</h4>
+<ol>
+<li><b>Event ledger.</b> In <code>orchestrator/pipeline.py</code>, add a 10-line wrapper around <code>run_pipeline</code> that appends each yielded event to <code>&lt;run_dir&gt;/events.jsonl</code> before passing it on. Every consumer (CLI, API, web) gets it for free.</li>
+<li><b>Registry from disk.</b> In <code>run_registry.get_run()</code>, when the id is not in memory, rebuild a finished <code>RunState</code> from <code>outputs/*_&lt;run_id&gt;/events.jsonl</code> and <code>metadata.json</code>. The SSE replay already handles a list of past events.</li>
+<li><b>Resume from a stage.</b> Add <code>run_pipeline(..., resume_dir: Path | None, from_stage: int | None)</code>. For each stage before <code>from_stage</code>, load <code>0N_*/result.json</code> with the stage's contract (<code>DiscoveryResult.model_validate</code>, etc.) and skip the service call. Default <code>from_stage</code> = the first stage with no <code>result.json</code>.</li>
+<li><b>Versioned finals.</b> When a resume would overwrite <code>final/</code>, move the old one to <code>final_v1/</code> first and record <code>"resumed_from_stage"</code> in <code>metadata.json</code>. This is the rollback: nothing is lost, and both versions can be compared.</li>
+<li><b>Surfaces.</b> <code>researchgenie resume &lt;run_dir|run_id&gt;</code>, <code>POST /research/runs/{id}/resume</code>, and a "Resume" button on failed runs in <code>frontend/index.html</code>.</li>
+</ol>
+<h4>Done when</h4>
+<ul><li>A test fakes a failure in Verification, then resumes. Discovery and Writing are not called again (mock call counts = 0), and <code>final/</code> plus <code>final_v1/</code> both exist.</li><li>After a server restart, <code>GET /research/runs/{old_id}</code> still returns status and events.</li></ul>
+<p class="risk">Risk: low. Contracts already round-trip through JSON (they are tested), so reloading saved results is safe.</p>
+</section>
+
+<!-- WS2 -->
+<section class="ws">
+<div class="ws-head"><h3>WS2 — Doctor: self-healing runs</h3><span class="chip m">M</span><span class="chip">L10</span></div>
+<div class="why"><b>Pain today:</b> the common failures each have a known fix in the code (<code>ollama_manager.start_ollama_server</code>, <code>pull_model</code>), but the user only sees an error string. This is the "diagnose and fix a failed deployment" task from the reference worklet, applied to the team's own product.</div>
+<h4>Build</h4>
+<ol>
+<li><code>researchgenie/doctor.py</code>: deterministic diagnosis, the same approach as QA (no LLM grading the system). It reads the last <code>failed</code> event in <code>events.jsonl</code> (from WS1), checks <code>/system</code>-style readiness, and matches the failure against a rule table:
+<div class="wrap"><table>
+<tr><th>Signal (already emitted today)</th><th>Diagnosis</th><th>Automatic fix</th></tr>
+<tr><td><code>LLMProviderError "Could not reach the local Ollama server"</code></td><td>Ollama is not running</td><td><code>start_ollama_server()</code>, then resume (WS1)</td></tr>
+<tr><td><code>"Model '…' is not installed"</code></td><td>The model is missing</td><td><code>pull_model()</code> with progress, then resume</td></tr>
+<tr><td><code>"No papers found in any source"</code> + <code>source_error</code> ×N</td><td>All sources rate-limited or offline</td><td>Wait for the <code>Retry-After</code> window, then resume from Discovery</td></tr>
+<tr><td><code>"No paper … judged relevant"</code></td><td>The question is too narrow or vague</td><td>Hand over to the clarify step (WS4), propose keywords</td></tr>
+<tr><td><code>draft_status: partial</code> / <code>broken_sections</code></td><td>The model failed a section audit</td><td>Resume from Writing (the graph's SQLite checkpoint keeps finished work)</td></tr>
+<tr><td>No <code>paper.pdf</code></td><td>No LaTeX toolchain</td><td>Report only: print the tectonic install hint</td></tr>
+</table></div></li>
+<li>Output: diagnosis, evidence (the event lines), the proposed fix, and <b>a prompt to confirm before applying it</b>. Auto-apply only with <code>--yes</code>. Write a <code>doctor_report.json</code> into the run folder (audit trail).</li>
+<li>Surfaces: <code>researchgenie doctor [run]</code>, <code>POST /research/runs/{id}/doctor</code>, and a "Diagnose &amp; fix" button next to the WS1 "Resume" button.</li>
+</ol>
+<h4>Done when</h4>
+<ul><li>Live demo: stop Ollama mid-run → the run fails → <code>doctor</code> identifies "Ollama not running", restarts it, resumes, and the run completes.</li><li>One unit test per rule row, using the recorded event lines as fixtures.</li></ul>
+<p class="risk">Depends on WS1. Keep the rule table data-driven (a list of tuples), so a new failure adds one row and no new code path.</p>
+</section>
+
+<!-- WS3 -->
+<section class="ws">
+<div class="ws-head"><h3>WS3 — Ship it: container, CI, cloud demo</h3><span class="chip m">M</span><span class="chip">L10 · L11 · L14</span></div>
+<div class="why"><b>Pain today:</b> trying the product means installing Ollama and pulling 6.6 GB. There is no CI, so the 319 tests run only when someone remembers. Gemini has never produced a draft.</div>
+<h4>Build</h4>
+<ol>
+<li><code>Dockerfile</code>: <code>python:3.11-slim</code>, <code>pip install -r requirements/base.txt &amp;&amp; pip install .</code>, and tectonic for PDFs. CMD <code>uvicorn orchestrator.api:app --host 0.0.0.0</code>.</li>
+<li><code>docker-compose.yml</code> with two profiles. <b>local</b>: <code>app</code> + <code>ollama/ollama</code> (GPU passthrough, model volume, <code>OLLAMA_HOST</code> pointed at it). <b>cloud</b>: <code>app</code> only, with <code>AI_PROVIDER=gemini</code>.</li>
+<li><b>Cloud demo</b> on one CPU VM (no GPU cost) running the <i>cloud</i> profile. This is also the place to verify Gemini for the first time (gap B-19). Put the key in an env var, never in the image.</li>
+<li><code>.github/workflows/test.yml</code>: run <code>pytest</code> on push and PR. The live tests already skip when Ollama is unreachable, and the full-pipeline test is gated by <code>AI_RESEARCH_RUN_FULL_PIPELINE</code>, so CI stays fast with no changes.</li>
+</ol>
+<h4>Done when</h4>
+<ul><li>A green CI badge, with the recorded test count replacing the unproven "320".</li><li>A public URL where <code>/system</code> shows <code>model_ready: true</code> and one full Gemini-backed run completes. Its run folder goes into <code>docs/</code>.</li></ul>
+<p class="risk">Risk: the free Gemini tier may hit rate limits on a 15-minute run. If so, the demo uses the Short length preset. A GPU VM is the fallback, at a cost.</p>
+</section>
+
+<!-- WS4 -->
+<section class="ws">
+<div class="ws-head"><h3>WS4 — Adaptive Discovery</h3><span class="chip m">M</span><span class="chip">L1 · L2 · L13</span></div>
+<div class="why"><b>Pain today:</b> the steps are fixed. Discovery always searches PubMed, even for civil engineering. A vague question runs the full 15 minutes before it fails. A thin corpus (fewer accepted papers than <code>corpus_size</code>) is analyzed as is, never searched again.</div>
+<h4>Build (three small, separable pieces)</h4>
+<ol>
+<li><b>Clarify (L1).</b> Add <code>analysis.clarify_question()</code>, one <code>complete_json</code> call with <code>think=False</code> and the schema <code>{specific: bool, missing: [str], suggested_question: str}</code>. CLI: if not specific, show the suggestion and accept, edit or keep it. Web: an inline prompt before the run starts. Skip for unattended runs.</li>
+<li><b>Model-chosen tools (L2, L13).</b> Add <code>llm_provider.chat_tools(system, user, tools)</code>, which sends Ollama <code>/api/chat</code> with <code>"tools": [...]</code> and returns <code>message.tool_calls</code>. Expose the four sources as tool schemas (<code>search_openalex(query)</code>, …), each mapped to the existing <code>sources/*.search</code>. The model picks the tools and the query for each tool. <b>Deterministic fallback:</b> if there are no or invalid tool calls, or on Gemini, use <code>DEFAULT_SOURCES</code> filtered by domain, so <code>MECHANICAL</code>/<code>CIVIL</code>/<code>EEE</code> drop PubMed. Emit a <code>tool_plan</code> event so the choice is visible in the log and the UI.</li>
+<li><b>Observe → revise loop (L1).</b> In <code>discovery/pipeline.py</code>, after <code>screen_papers()</code>: if <code>len(accepted) &lt; corpus_size</code> and round &lt; 2, call <code>generate_queries</code> again. The prompt gets the rejected titles and reasons (already in the <code>relevance_filter</code> event) and the instruction "avoid these, target the gap". Search again, merge, dedupe, screen. Emit <code>{"type":"replan","round":2,"reason":…}</code>.</li>
+</ol>
+<h4>Done when</h4>
+<ul><li>A civil-engineering question logs a <code>tool_plan</code> without PubMed. A biomedical question includes it.</li><li>A deliberately narrow question shows <code>replan round 2</code> and ends with more accepted papers than round 1.</li><li>Tests: a fake model returns no tool calls → the fallback path is used. The replan stops at 2 rounds.</li></ul>
+<p class="risk">Risk: whether <code>qwen3.5:9b</code> calls tools reliably is unproven. Run a 30-minute spike first. The deterministic fallback means the product never gets worse.</p>
+</section>
+
+<!-- WS5 -->
+<section class="ws">
+<div class="ws-head"><h3>WS5 — Research Library (cross-run memory)</h3><span class="chip m">M</span><span class="chip">L4</span></div>
+<div class="why"><b>Pain today:</b> full-text retrieval (Europe PMC → OA PDF) is the slowest and flakiest network step, and it repeats from scratch every run. Past runs are never read again. <b>Design constraint found in the code:</b> literature cards can't be reused across runs, because their cache key includes the tag definitions, which are specific to each question (<code>literature_card.py:99</code>). So memory works at the <i>paper</i> level, not the card level.</div>
+<h4>Build</h4>
+<ol>
+<li><code>shared/utilities/library.py</code>: stdlib <code>sqlite3</code> at <code>~/.researchgenie/library.sqlite</code>, next to the existing config. Tables:
+<pre>papers(doi PK, title, abstract, year, venue, discussion_excerpt, fulltext_status, first_seen)
+runs(run_id PK, question, created, overall_quality, draft_status, run_dir)
+run_papers(run_id, doi, selected BOOL)
+papers_fts / runs_fts  -- FTS5 over title+abstract / question</pre></li>
+<li><b>Write</b>: one call at the end of <code>run_pipeline</code> (next to <code>metadata.json</code>), plus a one-time <code>researchgenie library import</code> that backfills from the existing <code>outputs/</code> and <code>docs/research-papers/</code> runs.</li>
+<li><b>Read 1, full-text cache:</b> in <code>_collect_fulltext</code>, look up the DOI first. On a hit, reuse <code>discussion_excerpt</code> and skip the network. Emit <code>{"type":"memory_hit","papers":n}</code>.</li>
+<li><b>Read 2, related work:</b> before Discovery, run an FTS search of <code>runs_fts</code> for the new question and emit <code>related_runs</code>. The UI shows "You researched a similar question on 13 Sep (QA 4.2) → open".</li>
+<li><b>Read 3, candidate seeding:</b> previously selected papers whose FTS score matches the question join the candidate pool <i>before</i> the relevance gate, so they still have to pass it. This adds recall without bypassing the safety check.</li>
+</ol>
+<h4>Done when</h4>
+<ul><li>A second run on a related question logs <code>memory_hit</code> with a count above 0, and its Discovery time drops measurably (record both timings).</li><li>Tests: an FTS lookup round trip; the gate still rejects a seeded paper that is off topic.</li></ul>
+<p class="risk">Plain FTS5 needs no new dependency. Embeddings stay out until FTS recall measurably falls short. This is still RAG, with lexical retrieval; say so honestly.</p>
+</section>
+
+<!-- WS6 -->
+<section class="ws">
+<div class="ws-head"><h3>WS6 — Scholarly connector + MCP server</h3><span class="chip m">M</span><span class="chip">L5</span></div>
+<div class="why"><b>Pain today:</b> <code>services/verification/service.py::_resolves()</code> has no retry, so one rate-limited Crossref call marks a real reference "unverifiable". It also has its own HTTP client, separate from the shared one. Nothing speaks MCP.</div>
+<h4>Build</h4>
+<ol>
+<li><b>One connector.</b> Move Verification's DOI lookups onto the shared <code>discovery/sources/_http_retry.py</code> GET, and its OpenAlex lookup onto <code>sources/openalex.py</code> (add <code>work_by_doi()</code>). <b>Product effect:</b> fewer false "unverifiable" results. Measure it by re-verifying the 11 saved runs before and after.</li>
+<li><b>MCP server</b>, <code>researchgenie/mcp_server.py</code>, on the official <code>mcp</code> SDK (FastMCP, stdio) with entry point <code>researchgenie-mcp</code>. It has the three tool families from the reference worklet:
+<div class="wrap"><table>
+<tr><th>Family</th><th>Tools</th><th>Backed by (existing code)</th></tr>
+<tr><td>File</td><td><code>list_runs()</code>, <code>read_run_artifact(run_id, name)</code></td><td><code>outputs/</code>. Only names that are already allowed (the API's <code>FINAL_FILES</code>), with a path-traversal guard.</td></tr>
+<tr><td>SQLite</td><td><code>search_library(query)</code>, <code>run_summary(run_id)</code></td><td>WS5 <code>library.sqlite</code> (read-only connection)</td></tr>
+<tr><td>API</td><td><code>search_literature(query, sources)</code>, <code>verify_doi(doi)</code></td><td><code>discovery/sources/*</code>, the Verification <code>check_reference</code></td></tr>
+</table></div></li>
+</ol>
+<h4>Done when</h4>
+<ul><li>MCP Inspector or Claude Desktop lists the 6 tools, and <code>verify_doi</code> classifies a real DOI and a made-up one correctly.</li><li>The before/after "unverifiable" count across the 11 saved runs is recorded.</li></ul>
+<p class="risk">Adds the one new dependency (<code>mcp</code>), justified because MCP is a protocol. Read-only by design: the MCP server can't start runs or write files.</p>
+</section>
+
+<!-- WS7 -->
+<section class="ws">
+<div class="ws-head"><h3>WS7 — Auditable output: evidence table, paper approval, governance</h3><span class="chip s">S–M</span><span class="chip">L9 · L12</span></div>
+<div class="why"><b>Pain today:</b> the evidence trail exists (<code>literature_cards/*.json</code>, the verification results), but no user ever sees it. Writing starts on whatever papers Discovery chose, with no chance to drop a weak one.</div>
+<h4>Build</h4>
+<ol>
+<li><b>Evidence table</b> (deterministic, no LLM). Add <code>shared/utilities/evidence_table.py</code>, which joins the literature-card points (by tag), the section ↔ tag map from the writing artifacts, and the verification status by DOI. The orchestrator writes <code>final/evidence_table.md</code> (paper · point · section used · DOI · verified/invalid/unverifiable). Add it to <code>FINAL_FILES</code> so the web UI and API can download it, and add an "Evidence" tab in the results view.</li>
+<li><b>Paper approval gate.</b> Add an optional <code>approve: Callable[[DiscoveryResult], Awaitable[DiscoveryResult]]</code> parameter on <code>run_pipeline</code>, called after Stage 1. CLI: a table of the selected papers (relevance score, year, venue) where the user can drop some by number, backfilled from the ranked candidates. Web/API: the run status becomes <code>awaiting_approval</code>, and <code>POST /research/runs/{id}/approve</code> resolves an <code>asyncio.Event</code> on the <code>RunState</code>. <b>Default = auto-approve</b>, so tests, the smoke scripts and unattended runs don't change. Record the approval in <code>events.jsonl</code> (WS1): who, which papers were dropped, and when.</li>
+<li><b>Governance doc</b>, <code>docs/governance.md</code>: risk → control → where it is in the code → how to roll back. Example rows: invented citation → Verification, 3-way; off-topic paper → relevance gate + approval gate; unsupported claim → section audit omits it; key leak → header auth (D-023); bad output → WS1 versioned finals + resume.</li>
+</ol>
+<h4>Done when</h4>
+<ul><li>Every new run has <code>final/evidence_table.md</code>, and each row's DOI matches a <code>references.md</code> entry (a test asserts this).</li><li>In the web UI the run pauses after Discovery, a paper is dropped, and the draft does not cite it.</li></ul>
+</section>
+
+<!-- WS8 -->
+<section class="ws">
+<div class="ws-head"><h3>WS8 — Dev Agent (agentic SDLC factory)</h3><span class="chip l">L</span><span class="chip">L11</span></div>
+<div class="why"><b>Make it useful to the product:</b> not a toy code generator, but an agent that implements small, well-specified tickets <i>in this repo</i> under test control. A human approves the diff. Its demo ticket is a real product feature: <b>add APA citation style</b> (today only IEEE/Springer exist, in <code>citation_formatter.py</code>).</div>
+<h4>Build</h4>
+<ol>
+<li><code>devagent/graph.py</code>: a LangGraph <code>StateGraph</code>, reusing the Lab 7 pattern:
+<pre>read_ticket → plan (files to touch, acceptance criteria)
+  → write_failing_test → run_pytest (expect RED)
+  → write_patch → run_pytest
+  → [green?] → END : [round &lt; 3] → write_patch (with the pytest failure output fed back)
+  → present_diff (human approves; never commits or pushes)</pre></li>
+<li>Tools: <code>read_file</code>, <code>apply_patch</code> (limited to the paths in the plan), and <code>run_pytest(test_path)</code> through <code>subprocess</code> with a timeout. It works in a <code>git worktree</code>, so the main tree is never touched. The model is reached through <code>llm_provider</code>, like every other service.</li>
+<li>Audit: each round's prompt, patch and pytest output go to <code>devagent_runs/&lt;id&gt;/</code>, the same ledger style as WS1.</li>
+<li>Entry point: <code>researchgenie-dev "&lt;ticket text or path to a spec .md&gt;"</code>.</li>
+</ol>
+<h4>Done when</h4>
+<ul><li>A saved run on the APA ticket shows RED → GREEN with no hand edits, and the approved diff is merged as a normal commit. APA then becomes an option in the CLI and the web UI.</li></ul>
+<p class="risk">Risk: a 9B local model is weak at multi-file edits. Keep tickets to a single module with an obvious test. Use Gemini for this agent if the local model fails, and report which one produced the result. The human approval gate is required.</p>
+</section>
+
+<!-- WS9 -->
+<section class="ws">
+<div class="ws-head"><h3>WS9 — Live verification pass</h3><span class="chip s">ops</span><span class="chip">L8 · L9 · L13 · L14</span></div>
+<p>One session with Ollama running, then again after WS4/5:</p>
+<ol>
+<li><code>python scripts/smoke_test_trend_advisor.py CS_AI_ML</code> → the first real gap statements, chat, and hand-off. Record how long the swarm takes per topic and whether any topic gets <code>gap_signal: true</code>.</li>
+<li>3 fresh full runs → measure the effect of D-039 against the 3,691-word baseline. Record words and <code>draft_status</code>.</li>
+<li>Full <code>pytest</code> → record the real count (WS3's CI then keeps it current).</li>
+<li>A Gemini run on the WS3 cloud box.</li>
+<li>Publish to TestPyPI → install from it in a fresh venv → then publish to PyPI.</li>
+</ol>
+</section>
+
+<h2>Order of work</h2>
+<div class="wrap"><table>
+<tr><th>Phase</th><th>Work</th><th>Why this order</th></tr>
+<tr><td>A. Foundation</td><td>WS1 → WS7.1 (evidence table) → WS6.1 (verification on the shared connector) → WS9 pass #1</td><td>The ledger and resume make every later live test cheaper. Both of the other items are small, deterministic, and visible to users right away.</td></tr>
+<tr><td>B. Intelligence</td><td>WS2 → WS4 (spike tool calling first) → WS5</td><td>Doctor needs the ledger. Adaptive Discovery and the Library both change Discovery, so build them back to back.</td></tr>
+<tr><td>C. Reach &amp; governance</td><td>WS3 → WS6.2 (MCP) → WS7.2–3 (approval, governance doc) → WS9 pass #2</td><td>The MCP server reads the WS5 library. Approval reuses WS1's event ledger as its audit trail.</td></tr>
+<tr><td>D. Factory</td><td>WS8</td><td>The largest and riskiest piece, and independent of the rest. Its demo ticket ships a real feature (APA).</td></tr>
+</table></div>
+
+<h2>Lab status after the plan</h2>
+<div class="wrap"><table>
+<tr><th>Lab</th><th>Now</th><th>After</th><th>Delivered by</th></tr>
+<tr><td>1 Agent loop</td><td>Implemented (fixed steps)</td><td>Clarify → plan → act → observe → <b>replan</b></td><td>WS4</td></tr>
+<tr><td>2 Tool use</td><td>Code-called tools</td><td>Model-chosen tools, with a deterministic fallback</td><td>WS4</td></tr>
+<tr><td>3 Skills</td><td>Implemented</td><td>Unchanged (WS6 makes the skills callable over MCP)</td><td>—</td></tr>
+<tr><td>4 Memory</td><td>Partial</td><td>Cross-run paper library + FTS retrieval + full-text cache</td><td>WS5</td></tr>
+<tr><td>5 MCP</td><td>Partial, no protocol</td><td>A real MCP server: File + SQLite + API</td><td>WS6</td></tr>
+<tr><td>6 Runtime</td><td>Implemented</td><td>+ persisted ledger, survives restarts</td><td>WS1</td></tr>
+<tr><td>7 Graph</td><td>Implemented</td><td>+ a second production graph (Dev Agent)</td><td>WS8</td></tr>
+<tr><td>8 Swarm</td><td>Live model unverified for the advisor</td><td>Shown working live</td><td>WS9</td></tr>
+<tr><td>9 Deep research</td><td>No visible evidence table</td><td>The evidence table is part of every run's output</td><td>WS7</td></tr>
+<tr><td>10 Cloud ops</td><td>Partial</td><td>Container + cloud demo + CI + Doctor self-healing</td><td>WS1–3</td></tr>
+<tr><td>11 SDLC</td><td>Process only</td><td>A Dev Agent that turns a requirement into tested code, human-gated</td><td>WS8 + WS3 CI</td></tr>
+<tr><td>12 Safety</td><td>No rollback</td><td>Approval gate + versioned finals/resume + governance doc</td><td>WS1, WS7</td></tr>
+<tr><td>13 Discipline</td><td>Partial</td><td>Domain-aware sources + advisor verified live</td><td>WS4, WS9</td></tr>
+<tr><td>14 Capstone</td><td>Implemented</td><td>Public demo URL, on PyPI, CI-backed</td><td>WS3, WS9</td></tr>
+</table></div>
+
+<h2>Deliberately left out</h2>
+<ul>
+<li><b>Vector embeddings</b>: add only if FTS5 recall measurably misses related runs.</li>
+<li><b>Kubernetes or multi-node deploy</b>: one container on one VM is enough for a demo and a course.</li>
+<li><b>An LLM-based doctor</b>: rules cover every failure the code emits today, and the doctor stays deterministic like QA. An LLM explanation can be added later if unknown failures appear.</li>
+<li><b>Auto-commit in the Dev Agent</b>: a human approves every diff, always.</li>
+</ul>
+</main>
+</body>
+</html>

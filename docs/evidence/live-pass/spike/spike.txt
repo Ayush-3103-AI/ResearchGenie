@@ -1,0 +1,14 @@
+OK  Mechanical       arxiv,openalex,s2
+VAL Civil            openalex,pubmed,s2
+OK  Electrical       arxiv,openalex,s2
+OK  Electronics      arxiv,openalex,s2
+OK  Cloud / DevOps   arxiv,openalex,s2
+OK  Computer Science arxiv,s2
+OK  Nutrition        openalex,pubmed,s2
+OK  Medicine         pubmed,s2
+OK  Genetics         openalex,pubmed,s2
+OK  Public health    openalex,pubmed,s2
+OK  Management       openalex,s2
+OK  Physics          arxiv,s2
+
+Model qwen3.5:9b: 12/12 valid tool plans, 11/12 sensible (PubMed only where it belongs).

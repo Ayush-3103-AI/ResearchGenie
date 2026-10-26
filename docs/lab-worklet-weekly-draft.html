@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekly Worklet Draft</title>
+<style>
+:root{--bg:#fbfaf7;--card:#fff;--ink:#1d1d1b;--mute:#5d5b55;--line:#e3e0d8;--shade:#f3f1ea;
+--ok:#1f7a4d;--okbg:#e6f3ec;--part:#9a6100;--partbg:#fbf0dc;--no:#a23a2a;--nobg:#f8e6e2;--fix:#3d4fa3;--fixbg:#e9ecf8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161614;--card:#1f1f1c;--ink:#ecebe6;--mute:#a7a59d;--line:#34332e;--shade:#26251f;
+--ok:#6fcf9b;--okbg:#1d3328;--part:#e9b65c;--partbg:#3a2e17;--no:#ef8f7f;--nobg:#3d211c;--fix:#9eabf0;--fixbg:#232a47}}
+:root[data-theme="dark"]{--bg:#161614;--card:#1f1f1c;--ink:#ecebe6;--mute:#a7a59d;--line:#34332e;--shade:#26251f;
+--ok:#6fcf9b;--okbg:#1d3328;--part:#e9b65c;--partbg:#3a2e17;--no:#ef8f7f;--nobg:#3d211c;--fix:#9eabf0;--fixbg:#232a47}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1100px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:24px;margin:0 0 4px}h2{font-size:19px;margin:36px 0 12px}
+.sub{color:var(--mute);margin:0 0 20px}
+code{font:12.5px/1.4 ui-monospace,Consolas,monospace;background:var(--shade);padding:1px 4px;border-radius:4px;word-break:break-word}
+table{width:100%;border-collapse:collapse;background:var(--card)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;font-size:14px}
+th{background:var(--shade);font-weight:600}
+.meta td:first-child{width:220px;background:var(--shade);font-weight:600}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.ok{color:var(--ok);background:var(--okbg)}.part{color:var(--part);background:var(--partbg)}.no{color:var(--no);background:var(--nobg)}
+.new{color:var(--fix);background:var(--fixbg)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 0}
+.wrap{overflow-x:auto}
+.mute{color:var(--mute)}
+td.wk{white-space:nowrap;font-weight:600}
+ul{margin:4px 0;padding-left:20px}
+.blank{height:30px}
+@media print{body{background:#fff}tr{break-inside:avoid}}
+</style>
+</head>
+<body>
+<main>
+<h1>Agentic AI (26ECAC401): Weekly Worklet Progress (draft)</h1>
+<p class="sub">KLE Technological University, Belagavi · CSE (AI) · Team 7, ResearchGenie. Draft for the review sheet: one row per lab week, filled in from the code and git history as of 23 Oct 2026. It updates the 18 Oct sheet with rounds R1–R3 of the build.</p>
+
+<table class="meta">
+<tr><td>Team name / number</td><td>Team 7</td></tr>
+<tr><td>Worklet title</td><td>ResearchGenie: turn a research question into an evidence-grounded, citation-verified paper draft, running on a local model by default</td></tr>
+<tr><td>KPI &amp; expectations</td><td>A complete four-stage run (Discovery → Writing → Verification → QA) on a local 9B model (<code>qwen3.5:9b</code>). Every reference is classified verified / invalid / unverifiable. A deterministic QA score from 0 to 5. A failed run can be diagnosed and resumed, not restarted.<br><span class="mute">Measured: QA overall 3.5–4.2 / 5 across real runs; best draft 3,421 / 4,000 words; a full live run takes about 15 min. Test suite: 516 passed, 3 skipped (branch <code>r3/integration</code>, 20 Oct); CI runs on every push.</span></td></tr>
+<tr><td>Team members (Name — USN)</td><td><i class="mute">fill in</i></td></tr>
+<tr><td>Review (Week / date)</td><td><i class="mute">fill in</i></td></tr>
+</table>
+
+<div class="legend">
+<span class="chip ok">Implemented</span><span class="chip part">Partial / live check pending</span><span class="chip no">Not done</span><span class="chip new">Blue = new since the 18 Oct sheet</span>
+</div>
+
+<h2>Week by week</h2>
+<div class="wrap"><table>
+<tr><th style="width:62px">Week</th><th style="width:150px">Lab</th><th>What we built (where)</th><th style="width:210px">Evidence</th><th style="width:120px">Status</th></tr>
+
+<tr><td class="wk">1</td><td>Agent vs Chatbot</td>
+<td>Discovery runs a plan → act → observe → revise loop: the model writes the queries, four sources are searched, results are screened for relevance, and the writing audit revises failed sections (<code>discovery/pipeline.py</code>, <code>writing/graph.py</code>). <span class="chip new">New</span> It asks one clarifying question when a question is vague (#14) and searches again with new queries when too few papers are on topic (#15).</td>
+<td><code>test_clarify.py</code>, <code>test_discovery_replan.py</code></td><td><span class="chip ok">Implemented</span></td></tr>
+
+<tr><td class="wk">2</td><td>Tool-Using Agent</td>
+<td>Four scholarly APIs used as tools, all through one gateway with per-host pacing, retry and a circuit breaker (#3). <span class="chip new">New</span> Native tool calling: the model picks the databases and a query for each. Calls are validated, with a fallback by domain, e.g. no PubMed for mechanical engineering (#16).</td>
+<td><code>test_scholarly_gateway.py</code>, <code>test_discovery_source_plan.py</code></td><td><span class="chip part">Spike pending</span><br><span class="mute">Tool-calling reliability on the 9B model is not yet measured</span></td></tr>
+
+<tr><td class="wk">3</td><td>Skill Creation</td>
+<td>Each capability is a reusable unit: Pydantic contracts (<code>shared/contracts/</code>) and 13 prompt files. <span class="chip new">New</span> A headless JSON CLI (<code>run</code> / <code>status</code> / <code>result</code> / <code>resume</code> / <code>doctor</code>), with fixed command lines and exit codes, is the base for the agent skill (#10).</td>
+<td><code>test_discovery_contract.py</code>, <code>test_headless.py</code></td><td><span class="chip ok">Implemented</span><br><span class="mute">OpenClaw / Claude Code skill: R5 (#21)</span></td></tr>
+
+<tr><td class="wk">4</td><td>Memory &amp; Retrieval</td>
+<td>Short-term: LangGraph state plus SQLite checkpoints. <span class="chip new">New</span> Long-term: a research library in SQLite FTS5 that stores every run and paper, with backfill and search; a new run is shown related past runs (#18). A response cache keeps searches 7 days, DOI lookups 30, and extracted full text for good (#6).</td>
+<td><code>test_library.py</code>, <code>test_response_cache.py</code> (a second identical run makes 0 network calls)</td><td><span class="chip ok">Implemented</span><br><span class="mute">No vector search (out of scope); Discovery reading the library: R4 (#19)</span></td></tr>
+
+<tr><td class="wk">5</td><td>MCP-Style Connector</td>
+<td>One model connector (<code>llm_provider.py</code>: Ollama or Gemini). <span class="chip new">New</span> Verification now uses the same scholarly gateway as Discovery (#4). A real, read-only MCP server on the official SDK, <code>researchgenie-mcp</code>, has six tools: list runs, read an artifact, search the library, summarize a run, search the literature, verify a DOI (#20).</td>
+<td><code>test_mcp_server.py</code> (a real MCP client session; path-traversal refusals); <code>docs/mcp-server.md</code></td><td><span class="chip ok">Implemented</span></td></tr>
+
+<tr><td class="wk">6</td><td>OpenCLA / OpenClaw Runtime</td>
+<td>Our own orchestrator runtime with standard progress events, FastAPI + SSE, and the web UI. <span class="chip new">New</span> A durable event log per run (<code>events.jsonl</code>), so history survives a restart (#8), and the headless CLI that OpenClaw will call (#10).</td>
+<td><code>test_pipeline.py</code>, <code>test_api.py</code>, <code>test_headless.py</code></td><td><span class="chip part">Custom runtime</span><br><span class="mute">OpenClaw itself: R5 (#21)</span></td></tr>
+
+<tr><td class="wk">7</td><td>Agentic Node Graph</td>
+<td>Research Writing is a 9-node LangGraph with conditional edges and checkpoints. <span class="chip new">New</span> The Dev Agent is a second graph: plan → failing test → patch → test, at most 3 rounds (#25).</td>
+<td><code>writing/graph.py</code>, <code>test_dev_agent.py</code></td><td><span class="chip ok">Implemented</span></td></tr>
+
+<tr><td class="wk">8</td><td>Parallel Swarm</td>
+<td>A <code>Send()</code> fan-out with one literature-card worker per paper; parallel source search and full-text fetch; the Trend Advisor's gap-mining swarm with a merge that needs several papers to agree.</td>
+<td><code>test_trend_gap_mining.py</code> (a barrier test proves the workers run in parallel)</td><td><span class="chip part">Implemented</span><br><span class="mute">Gap mining is not yet shown on a real model</span></td></tr>
+
+<tr><td class="wk">9</td><td>Deep Research Agent</td>
+<td>Multi-hop research: search, relevance gate, full-text Discussion mining, future-work candidates checked against a fresh search, gap analysis, then a cited draft. <span class="chip new">New</span> Every run now writes an evidence table: paper → evidence point → section → DOI → verification status (#11).</td>
+<td>11 real runs in <code>docs/research-papers/</code>; <code>test_evidence_table.py</code></td><td><span class="chip ok">Implemented</span></td></tr>
+
+<tr><td class="wk">10</td><td>Cloud Operations Agent</td>
+<td><span class="chip new">New</span> CI on every push (#2). A container image and compose file with a local (Ollama) and a cloud (Gemini) profile (#23). The <b>Doctor</b> reads a failed run's log and the live system status, names the cause from a rule table, and applies the fix after confirmation: start Ollama, download the model, add a key, wait for the reset, or resume (#13). There is also a web "Diagnose &amp; fix" button.</td>
+<td><code>.github/workflows/test.yml</code>, <code>Dockerfile</code>, <code>test_doctor.py</code> (one test per rule)</td><td><span class="chip part">Live demo pending</span><br><span class="mute">Stop Ollama mid-run → Doctor recovers; hosted demo not deployed</span></td></tr>
+
+<tr><td class="wk">11</td><td>Agentic SDLC Factory</td>
+<td><span class="chip new">New</span> The Dev Agent turns a ticket into tested code: it plans, writes a failing test, then patches until green. It works in a throwaway git worktree and never commits; a human applies the diff (#25). After real runs on the 9B model, patches became search-and-replace edits, with the existing tests run as guards (#26).</td>
+<td><code>test_dev_agent.py</code>; the ticket <code>docs/tickets/26-apa-7.md</code></td><td><span class="chip part">Demo run pending</span><br><span class="mute">The APA ticket run (red → green) is being redone on the GPU laptop</span></td></tr>
+
+<tr><td class="wk">12</td><td>Safety &amp; Governance</td>
+<td>Approval gates in the CLI; deterministic QA; a DOI checker that never repairs a reference. <span class="chip new">New</span> Paper approval before writing (#17). <b>Rollback</b>: resume from the failed stage, with earlier output kept as <code>final_v1/</code>, <code>final_v2/</code> (#9). The Doctor's confirmation rule. Keys never logged. A governance document maps 6 risks to their control, test and rollback (#22).</td>
+<td><code>test_resume.py</code>, <code>test_discovery_approval.py</code>, <code>docs/GOVERNANCE.md</code></td><td><span class="chip ok">Implemented</span><br><span class="mute">The 18 Oct "no rollback" gap is closed</span></td></tr>
+
+<tr><td class="wk">13</td><td>Discipline-Specific Agents</td>
+<td>The Trend &amp; Gap Advisor ranks rising topics for 6 engineering fields from real OpenAlex counts. <span class="chip new">New</span> The search adapts to the field: engineering and cloud requests skip PubMed (#16).</td>
+<td>8 saved advisor runs in 6 fields; <code>test_discovery_source_plan.py</code></td><td><span class="chip part">Partial</span><br><span class="mute">Gap statements from a real model are still unshown</span></td></tr>
+
+<tr><td class="wk">14</td><td>Capstone Project Studio</td>
+<td>One installable system with a terminal app, an HTTP API and a web workbench. <span class="chip new">New</span> The web app adds resume, paper approval, Doctor and an evidence tab; there are also the headless CLI, the MCP server and the APA citation style.</td>
+<td>516 tests passing; real runs with PDFs; <code>README.md</code></td><td><span class="chip part">Nearly complete</span><br><span class="mute">R3 merge, PyPI and a hosted demo are open</span></td></tr>
+</table></div>
+
+<h2>What landed since the 18 Oct sheet</h2>
+<div class="wrap"><table>
+<tr><th style="width:110px">Date</th><th>Round</th><th style="width:150px">Labs</th></tr>
+<tr><td>18 Oct</td><td><b>R1</b> (merged, PR #29): scholarly gateway, event log, evidence table, clarify step, research library, CI, container image</td><td>1, 2, 4, 6, 9, 10, 14</td></tr>
+<tr><td>18 Oct</td><td><b>R2</b> (merged, PR #30): Verification through the gateway, key setup, resume + versioned finals, paper approval, re-plan, Dev Agent</td><td>1, 5, 7, 11, 12</td></tr>
+<tr><td>18–20 Oct</td><td><b>R3</b> (on branch <code>r3/integration</code>, not merged yet): response cache, headless CLI, Doctor, MCP server, tool calling, governance document, APA in the CLI, Dev Agent edit-based patches</td><td>2, 3, 4, 5, 10, 11, 12, 13</td></tr>
+</table></div>
+
+<h2>Still to show before the final review</h2>
+<ul>
+<li><b>Week 2:</b> the tool-calling spike on the 9B model (<code>scripts/spike_tool_calling.py</code>).</li>
+<li><b>Week 10:</b> the Doctor live demo, which stops Ollama mid-run so the Doctor can recover the run.</li>
+<li><b>Week 11:</b> the Dev Agent's APA run, red → green with no hand edits.</li>
+<li><b>Weeks 8 and 13:</b> gap mining on a real model.</li>
+<li><b>Week 14:</b> merge R3, then the R4 work (budget check, decision brief, library reads in Discovery) and R5 (the OpenClaw / Claude Code skill).</li>
+</ul>
+
+<h2>Marks</h2>
+<div class="wrap"><table>
+<tr><th>Week</th><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr>
+<tr><td>1–14</td><td class="blank"></td><td></td><td></td><td></td><td></td><td></td></tr>
+</table></div>
+<p class="mute" style="margin-top:24px">Reviewer signature: ______________________ &nbsp;&nbsp; Date: ________________</p>
+</main>
+</body>
+</html>

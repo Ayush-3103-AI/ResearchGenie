@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab Worklet Final</title>
+<style>
+:root{--bg:#fbfaf7;--card:#fff;--ink:#1d1d1b;--mute:#5d5b55;--line:#e3e0d8;--shade:#f3f1ea;
+--ok:#1f7a4d;--okbg:#e6f3ec;--part:#9a6100;--partbg:#fbf0dc;--no:#a23a2a;--nobg:#f8e6e2;--fix:#3d4fa3;--fixbg:#e9ecf8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161614;--card:#1f1f1c;--ink:#ecebe6;--mute:#a7a59d;--line:#34332e;--shade:#26251f;
+--ok:#6fcf9b;--okbg:#1d3328;--part:#e9b65c;--partbg:#3a2e17;--no:#ef8f7f;--nobg:#3d211c;--fix:#9eabf0;--fixbg:#232a47}}
+:root[data-theme="dark"]{--bg:#161614;--card:#1f1f1c;--ink:#ecebe6;--mute:#a7a59d;--line:#34332e;--shade:#26251f;
+--ok:#6fcf9b;--okbg:#1d3328;--part:#e9b65c;--partbg:#3a2e17;--no:#ef8f7f;--nobg:#3d211c;--fix:#9eabf0;--fixbg:#232a47}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1180px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:24px;margin:0 0 4px}h2{font-size:19px;margin:36px 0 12px}
+.sub{color:var(--mute);margin:0 0 20px}
+code{font:12.5px/1.4 ui-monospace,Consolas,monospace;background:var(--shade);padding:1px 4px;border-radius:4px;word-break:break-word}
+table{width:100%;border-collapse:collapse;background:var(--card)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;font-size:14px}
+th{background:var(--shade);font-weight:600}
+.meta td:first-child{width:220px;background:var(--shade);font-weight:600}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap;margin:1px 0}
+.ok{color:var(--ok);background:var(--okbg)}.part{color:var(--part);background:var(--partbg)}.no{color:var(--no);background:var(--nobg)}
+.new{color:var(--fix);background:var(--fixbg)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 0}
+.wrap{overflow-x:auto}
+.mute{color:var(--mute)}
+td.wk{white-space:nowrap;font-weight:600}
+td.nov{background:var(--fixbg)}
+ul{margin:4px 0;padding-left:20px}
+.blank{height:30px}
+@media print{body{background:#fff}tr{break-inside:avoid}}
+</style>
+</head>
+<body>
+<main>
+<h1>Agentic AI (26ECAC401): Lab Worklet Sheet, Final Review</h1>
+<p class="sub">KLE Technological University, Belagavi · CSE (AI) · Team 7, ResearchGenie. One row per lab week, checked against the code on <code>main</code> and the evidence in <code>docs/evidence/</code>. It replaces the 18 Oct sheet and the 23 Oct draft. Each row has two statuses: <b>Built</b> means the code is merged and its tests pass. <b>Live</b> means it was run on the real model, and <code>scripts/live_pass.py</code> sets that chip from what it measured.</p>
+
+<table class="meta">
+<tr><td>Team name / number</td><td>Team 7</td></tr>
+<tr><td>Worklet title</td><td>ResearchGenie: turn a research question into an evidence-grounded, citation-verified paper draft, running on a local model by default</td></tr>
+<tr><td>KPI &amp; expectations</td><td>A complete four-stage run (Discovery → Writing → Verification → QA) on a local 9B model (<code>qwen3.5:9b</code>, RTX 4060 8 GB). Every reference is classified verified / invalid / unverifiable. A deterministic QA score from 0 to 5. A failed run is diagnosed and resumed, not restarted. Every run ends with an evidence table and exactly one recommended next action.<br><span class="mute">Measured before this round: QA overall 3.5–4.2 / 5; best draft 3,421 / 4,000 words; a full run takes about 15 min. The measurements from this round are in <a href="evidence/live-pass/LIVE_PASS.md">LIVE_PASS.md</a>.</span></td></tr>
+<tr><td>Team members (Name — USN)</td><td><i class="mute">fill in</i></td></tr>
+<tr><td>Review (Week / date)</td><td>Final review · Wed 28 Oct 2026</td></tr>
+</table>
+
+<div class="legend">
+<span class="chip ok">Built / Live: shown</span><span class="chip part">Live: pending</span><span class="chip no">Live: failed (see LIVE_PASS.md)</span><span class="chip new">Novelty</span>
+</div>
+
+<h2>Week by week</h2>
+<div class="wrap"><table>
+<tr><th style="width:52px">Week</th><th style="width:120px">Lab</th><th>What we built (where)</th><th style="width:250px">Novelty</th><th style="width:190px">Evidence</th><th style="width:118px">Status</th></tr>
+
+<tr><td class="wk">1</td><td>Agent vs Chatbot</td>
+<td>Discovery runs a plan → act → observe → revise loop. The model writes the queries, four sources are searched, the results are screened for relevance, and the writing audit revises any section that fails (<code>discovery/pipeline.py</code>, <code>writing/graph.py</code>). It asks one clarifying question when a question is vague (#14), and searches again with new queries when too few papers are on topic (#15).</td>
+<td class="nov">The agent adapts only when the evidence says so. Both triggers (a vague question, a thin corpus) are deterministic checks, so its behaviour can be explained and tested.</td>
+<td><code>test_clarify.py</code>, <code>test_discovery_replan.py</code>; the live runs</td>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="runs">Live: shown</span></td></tr>
+
+<tr><td class="wk">2</td><td>Tool-Using Agent</td>
+<td>Four scholarly APIs used as tools, all through one gateway with per-host pacing, credit-aware retry and a circuit breaker (#3). With native tool calling, the model picks the databases and a query for each. Each call is validated, with a fallback by field (#16). A budget check estimates a run's OpenAlex credits before it starts, and batches DOI lookups at 100 per request (#7).</td>
+<td class="nov">The model chooses the tools, but code checks each choice against the field (no PubMed for mechanical engineering). The gateway knows each provider's credits, so the agent stops before a run would fail, not after.</td>
+<td><code>test_scholarly_gateway.py</code>, <code>test_discovery_source_plan.py</code>, the budget-check tests; <a href="evidence/live-pass/spike.json">spike.json</a></td>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="spike">Live: shown</span></td></tr>
+
+<tr><td class="wk">3</td><td>Skill Creation</td>
+<td>Each capability is a reusable unit: Pydantic contracts (<code>shared/contracts/</code>) and 13 prompt files. A headless JSON CLI (run / status / result / resume / doctor) has fixed command lines and exit codes (#10). One Agent Skills folder, <code>skills/researchgenie/</code>, uses only that CLI (#21).</td>
+<td class="nov">One skill runs in two agent runtimes (Claude Code and OpenClaw). It calls only allowlistable command lines: no inline code, no pipe-to-shell. A test fails if the skill and the CLI drift apart.</td>
+<td><code>test_headless.py</code>, <code>test_agent_skill.py</code>, <a href="agent-skill.md">agent-skill.md</a></td>
+<td><span class="chip ok">Built</span></td></tr>
+
+<tr><td class="wk">4</td><td>Memory &amp; Retrieval</td>
+<td>Short-term memory: the LangGraph state, with SQLite checkpoints. Long-term memory: a research library in SQLite FTS5 that stores every run and paper (#18), and a response cache (#6). Discovery now reads the library: it reuses stored Discussion excerpts by DOI and seeds matching past papers into the candidate pool (#19). <code>--no-memory</code> turns this off.</td>
+<td class="nov">Memory makes later runs faster but cannot get past the safety screen. Seeded past papers still go through the relevance gate, and a test shows an off-topic one is rejected.</td>
+<td><code>test_library.py</code>, <code>test_response_cache.py</code>, the library-read tests; the related-run timing in LIVE_PASS.md</td>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="runs">Live: shown</span></td></tr>
+
+<tr><td class="wk">5</td><td>MCP Connector</td>
+<td>One model connector (<code>llm_provider.py</code>: Ollama or Gemini). Verification uses the same scholarly gateway as Discovery (#4). <code>researchgenie-mcp</code> is a real read-only MCP server on the official SDK, with six tools: list runs, read an artifact, search the library, summarize a run, search the literature, verify a DOI (#20).</td>
+<td class="nov">Any MCP client (Claude Desktop, Claude Code, OpenClaw) can use our library and DOI checker. The server is read-only by design and refuses path traversal. The DOI tool reports "not found"; it never repairs a reference.</td>
+<td><code>test_mcp_server.py</code> (a real MCP client session); <a href="mcp-server.md">mcp-server.md</a></td>
+<td><span class="chip ok">Built</span></td></tr>
+
+<tr><td class="wk">6</td><td>OpenClaw Runtime</td>
+<td>Our orchestrator runtime has standard progress events, FastAPI + SSE and the web UI. A durable event log per run (<code>events.jsonl</code>) keeps history across a restart (#8). OpenClaw runs ResearchGenie through the skill: a question from a chat app starts a background run, and OpenClaw sends a message with the decision brief when it finishes (#21).</td>
+<td class="nov">The same run can be watched from a terminal, a browser or a chat app, because every surface reads one event ledger.</td>
+<td><code>test_pipeline.py</code>, <code>test_api.py</code>; the chat recording (see <a href="agent-skill.md">agent-skill.md</a>)</td>
+<td><span class="chip ok">Built</span> <span class="chip part">Chat recording: pending</span></td></tr>
+
+<tr><td class="wk">7</td><td>Agentic Node Graph</td>
+<td>Research Writing is a 9-node LangGraph with conditional edges and SQLite checkpoints. The Dev Agent is a second graph: plan → failing test → patch → test, at most 3 rounds (#25).</td>
+<td class="nov">Two cooperating graphs: one writes the paper, and the other changes the product's own code under test.</td>
+<td><code>writing/graph.py</code>, <code>test_dev_agent.py</code></td>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="runs">Live: shown</span></td></tr>
+
+<tr><td class="wk">8</td><td>Parallel Swarm</td>
+<td>A Send() fan-out with one literature-card worker per paper; parallel source search and full-text fetch; the Trend Advisor's gap-mining swarm, with a merge that needs several papers to agree.</td>
+<td class="nov">A gap counts only when several independent papers raise it (a recurrence threshold), so one paper's wish list does not become a "gap". A barrier test proves that the workers run in parallel.</td>
+<td><code>test_trend_gap_mining.py</code>; the advisor runs in LIVE_PASS.md</td>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="advisor">Live: shown</span></td></tr>
+
+<tr><td class="wk">9</td><td>Deep Research Agent</td>
+<td>Multi-hop research: search, a relevance gate, full-text Discussion mining, future-work candidates checked against a fresh search, gap analysis, then a cited draft. Every run writes an evidence table (#11) and a decision brief (#12).</td>
+<td class="nov">Every claim traces to a row: paper → evidence point → section → DOI → verification status. The brief lists which references to check by hand and gives exactly one next action, without an LLM call.</td>
+<td>11 earlier runs in <code>docs/research-papers/</code>; the fresh runs in <code>docs/evidence/live-pass/runs/</code>; <code>test_evidence_table.py</code>, the decision-brief tests</td>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="runs">Live: shown</span></td></tr>
+
+<tr><td class="wk">10</td><td>Cloud Ops Agent</td>
+<td>CI on every push (#2). A container image with a local (Ollama) and a cloud (Gemini) profile (#23). The Doctor reads a failed run's log and the live system status, names the cause from a rule table, and applies the fix after confirmation: start Ollama, download the model, add a key, wait for the reset, or resume (#13). The budget check prevents credit failures (#7). Hosted demo: <a href="hosted-demo.md">hosted-demo.md</a> (#24).</td>
+<td class="nov">A self-healing ops agent with no guessing. The diagnosis quotes its evidence, a human confirms the fix, and the run resumes from the failed stage instead of starting again.</td>
+<td><code>.github/workflows/test.yml</code>, <code>Dockerfile</code>, <code>test_doctor.py</code> (one test per rule); the Doctor live test</td>
+<td><span class="chip ok">Built</span> <span class="chip no" data-live="doctor">Live: failed</span></td></tr>
+
+<tr><td class="wk">11</td><td>Agentic SDLC Factory</td>
+<td>The Dev Agent turns a ticket into tested code. It plans, writes a failing test, then patches with search/replace edits until the test passes. The existing tests run as guards. It works in a throwaway git worktree and never commits; a human applies the diff (#25, #26). Its demo ticket is a real feature: APA 7 citations.</td>
+<td class="nov">The agent shipped a product feature. Red is required first; a "green" with no red is rejected as <code>not_red</code>. The audit trail records every round.</td>
+<td><code>test_dev_agent.py</code>; <a href="tickets/26-apa-7.md">26-apa-7.md</a> (Result line); <code>docs/evidence/live-pass/devagent/</code></td>
+<td><span class="chip ok">Built</span> <span class="chip no" data-live="devagent">Live: failed</span></td></tr>
+
+<tr><td class="wk">12</td><td>Safety &amp; Governance</td>
+<td>Approval gates in the CLI and the web UI. Paper approval before writing (#17). Deterministic QA, and a DOI checker that never repairs a reference. Rollback: a run resumes from the failed stage, and the earlier output is kept as <code>final_v1/</code>, <code>final_v2/</code> (#9). The Doctor's confirmation rule. Keys are never logged. A governance document maps 6 risks to their control, test and rollback (#22).</td>
+<td class="nov">The output is judged by a checker that is independent of the model that wrote it. Nothing is overwritten: every version stays and can be compared.</td>
+<td><code>test_resume.py</code>, <code>test_discovery_approval.py</code>, <a href="GOVERNANCE.md">GOVERNANCE.md</a></td>
+<td><span class="chip ok">Built</span></td></tr>
+
+<tr><td class="wk">13</td><td>Discipline-Specific</td>
+<td>The Trend &amp; Gap Advisor ranks rising topics in 6 engineering fields from real OpenAlex counts. The search adapts to the field: engineering and cloud requests skip PubMed (#16). A confirmed pick goes into the full pipeline under one run id (D-040).</td>
+<td class="nov">The topic ranking comes from measured publication growth, not the model's opinion. The model is used only to read the stated future work of real papers.</td>
+<td>8 saved advisor runs in 6 fields; the advisor rows in LIVE_PASS.md</td>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="advisor">Live: shown</span></td></tr>
+
+<tr><td class="wk">14</td><td>Capstone Studio</td>
+<td>One installable system with four entry points (<code>researchgenie</code>, <code>-advise</code>, <code>-dev</code>, <code>-mcp</code>), an HTTP API, a web workbench (resume, paper approval, Doctor, evidence and decision brief), the agent skill and a container. <a href="demo-runbook.md">demo-runbook.md</a> has the 12-minute demo.</td>
+<td class="nov">The whole agentic system runs on an 8 GB laptop GPU, with no cloud cost and no data leaving the machine. Gemini is one setting away.</td>
+<td>the full test count in LIVE_PASS.md; CI; README</td>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="tests">Live: shown</span></td></tr>
+</table></div>
+
+<h2>Since the 18 Oct sheet</h2>
+<div class="wrap"><table>
+<tr><th>Week</th><th>18 Oct sheet</th><th>Now</th></tr>
+<tr><td>4</td><td>Partial</td><td>Library, response cache, and Discovery reading the library</td></tr>
+<tr><td>5</td><td>Partial, "no real MCP server"</td><td>A real read-only MCP server</td></tr>
+<tr><td>6</td><td>Custom runtime</td><td>Event ledger and an OpenClaw / Claude Code skill</td></tr>
+<tr><td>10</td><td>Partial, "no Docker, no CI"</td><td>CI, container, Doctor, budget check, hosted demo recipe</td></tr>
+<tr><td>11</td><td>Process only</td><td>The Dev Agent delivers APA 7</td></tr>
+<tr><td>12</td><td>No rollback</td><td>Rollback through resume and versioned finals; approval gate; governance document; decision brief</td></tr>
+</table></div>
+
+<h2>Marks</h2>
+<div class="wrap"><table>
+<tr><th>Week</th><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr>
+<tr><td>1–14</td><td class="blank"></td><td></td><td></td><td></td><td></td><td></td></tr>
+</table></div>
+<p class="mute" style="margin-top:24px">Reviewer signature: ______________________ &nbsp;&nbsp; Date: ________________</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab Worklet Sheet</title>
+<style>
+:root{--bg:#fbfaf7;--card:#fff;--ink:#1d1d1b;--mute:#5d5b55;--line:#e3e0d8;--shade:#f3f1ea;
+--ok:#1f7a4d;--okbg:#e6f3ec;--part:#9a6100;--partbg:#fbf0dc;--no:#a23a2a;--nobg:#f8e6e2;--fix:#3d4fa3;--fixbg:#e9ecf8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161614;--card:#1f1f1c;--ink:#ecebe6;--mute:#a7a59d;--line:#34332e;--shade:#26251f;
+--ok:#6fcf9b;--okbg:#1d3328;--part:#e9b65c;--partbg:#3a2e17;--no:#ef8f7f;--nobg:#3d211c;--fix:#9eabf0;--fixbg:#232a47}}
+:root[data-theme="dark"]{--bg:#161614;--card:#1f1f1c;--ink:#ecebe6;--mute:#a7a59d;--line:#34332e;--shade:#26251f;
+--ok:#6fcf9b;--okbg:#1d3328;--part:#e9b65c;--partbg:#3a2e17;--no:#ef8f7f;--nobg:#3d211c;--fix:#9eabf0;--fixbg:#232a47}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:24px;margin:0 0 4px}h2{font-size:19px;margin:40px 0 12px}h3{font-size:16px;margin:0}
+.sub{color:var(--mute);margin:0 0 20px}
+code{font:13px/1.4 ui-monospace,Consolas,monospace;background:var(--shade);padding:1px 4px;border-radius:4px;word-break:break-word}
+table{width:100%;border-collapse:collapse;background:var(--card)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--shade);font-weight:600}
+.meta td:first-child{width:220px;background:var(--shade);font-weight:600}
+.lab{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:22px 0;overflow:hidden;break-inside:avoid}
+.lab-head{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.lab-head .concept{color:var(--mute);font-size:13.5px;margin-top:2px;flex-basis:100%}
+.chip{font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.ok{color:var(--ok);background:var(--okbg)}.part{color:var(--part);background:var(--partbg)}.no{color:var(--no);background:var(--nobg)}
+.lab table{border:0}.lab td,.lab th{border-left:0;border-right:0}
+.lab td.k{width:30%;background:var(--shade);font-weight:600;font-size:14px}
+.note{margin:0;padding:10px 16px;font-size:14px;border-top:1px solid var(--line)}
+.note.gap{background:var(--nobg)}.note.fix{background:var(--fixbg)}
+.note b{font-weight:600}
+.marks td{height:34px;text-align:center}.marks th{text-align:center;font-size:13px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 0}
+.wrap{overflow-x:auto}
+ul{margin:4px 0;padding-left:20px}
+@media print{body{background:#fff}.lab{break-inside:avoid}}
+</style>
+</head>
+<body>
+<main>
+<h1>Agentic AI (26ECAC401): Lab Worklet Review Sheet</h1>
+<p class="sub">KLE Technological University, Belagavi · CSE (AI) · Team 7, ResearchGenie. Every entry was checked against the code in <code>AI-Research-Assistant/</code> and its git history on 18 Oct 2026.</p>
+
+<table class="meta">
+<tr><td>Team name / number</td><td>Team 7</td></tr>
+<tr><td>Worklet title</td><td>ResearchGenie: turn a research question into an evidence-grounded, citation-verified paper draft, running on a local model by default</td></tr>
+<tr><td>KPI &amp; expectations</td><td>A complete four-stage run (Discovery → Writing → Verification → QA) on a local 9B model (<code>qwen3.5:9b</code>, RTX 4060 8 GB). Every reference is classified verified / invalid / unverifiable. A deterministic QA score from 0 to 5. The result is a complete draft; failures are shown to the user, not hidden.<br><span style="color:var(--mute)">Measured: QA overall 3.5 to 4.2 / 5 across real runs; 3 of 3 stress topics reached <code>draft_status: complete</code> (D-021); best draft 3,421 / 4,000 words (D-026); a full live run takes about 15 min (913 s, D-016).</span></td></tr>
+<tr><td>Team members (Name — USN)</td><td><i style="color:var(--mute)">not in the repo, fill in</i></td></tr>
+<tr><td>Review (Week / date)</td><td><i style="color:var(--mute)">fill in</i></td></tr>
+</table>
+
+<div class="legend">
+<span class="chip ok">Implemented</span><span class="chip part">Partial / adjacent</span><span class="chip no">Not a product feature</span>
+<span class="chip" style="color:var(--fix);background:var(--fixbg)">Blue box = correction to the earlier draft text</span>
+</div>
+
+<h2>Build timeline (from git commits)</h2>
+<div class="wrap"><table>
+<tr><th style="width:110px">Date</th><th>What landed</th><th style="width:120px">Labs</th></tr>
+<tr><td>26 Aug</td><td>Workspace, docs, and hardware-matched model choice (<code>qwen3.5:9b</code>)</td><td>—</td></tr>
+<tr><td>27 Aug</td><td>Research Discovery integrated and verified live. Research Writing (LangGraph) integrated, and its outline bug fixed. Citation Verification, Quality Assurance, the orchestrator and terminal app, the FastAPI <code>POST /research</code>, an opt-in full-pipeline live test, and the async API with SSE also landed.</td><td>1, 2, 3, 4, 6, 7, 8, 9, 12</td></tr>
+<tr><td>28 Aug</td><td>Three reliability passes. Packaged as <code>pip install researchgenie</code> with a setup wizard, Ollama auto-start and install, an optional Gemini provider, and LaTeX export. Phase 1 to 3 docs, compiled PDFs for 11 real runs, and the GitHub remote.</td><td>5, 10, 11, 12, 14</td></tr>
+<tr><td>29 Aug</td><td>Fixes for paper length and completeness, IEEE/Springer templates, and the bookend-citation bug. PR #1 merged.</td><td>11, 12</td></tr>
+<tr><td>12 Sep</td><td>Spec, then the Trend &amp; Gap Advisor (Stage 0): OpenAlex velocity plus a gap-mining <code>Send</code> swarm, wired into the orchestrator</td><td>8, 11, 13</td></tr>
+<tr><td>13 Sep</td><td>Advisor tickets closed. Discovery's Discussion text now goes to Writing (D-039). Ollama-install timeout fix (D-042). Testing protocol added.</td><td>9, 10, 11</td></tr>
+<tr><td>16 Sep</td><td>Browser demo over the pipeline and the advisor (<code>frontend/index.html</code>, served by the API)</td><td>6, 14</td></tr>
+<tr><td>27–28 Sep</td><td>Web front end rebuilt as a research workbench, then themed</td><td>14</td></tr>
+</table></div>
+
+<h2>Lab entries</h2>
+
+<!-- LAB 1 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 1 — Agent vs Chatbot</h3><span class="chip ok">Implemented</span>
+<div class="concept">Agent loop &amp; the plan–act–observe–revise cycle (vs a stateless chatbot)</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>Research Discovery takes one research question and runs a multi-step loop to a result. A chatbot would answer one prompt. Plan: the model writes the search queries. Act: the agent calls the scholarly APIs. Observe: it dedupes, applies a relevance gate, and handles source failures. Revise: it re-ranks the papers. The clearest revise step is in Research Writing: every drafted section is audited, and a section that fails gets one revision round.</td></tr>
+<tr><td class="k">2. Technical stack</td><td>Python 3.11, asyncio. Local Ollama <code>qwen3.5:9b</code> through <code>shared/utilities/llm_provider.py</code> (JSON-schema-constrained output). httpx. LangGraph for the writing loop.</td></tr>
+<tr><td class="k">3. Implementation</td><td><code>discovery/pipeline.py::run_pipeline()</code> runs these stages: <code>generate_queries</code> (LLM), search across 4 sources, dedupe and rank, relevance gate (<code>relevance.py</code>), full-text mining, <code>mine_future_research</code>, checking each candidate against a fresh search, and <code>analyze_gaps</code> (LLM). Each stage emits a real progress event (<code>status</code>, <code>source_error</code>, <code>relevance_filter</code>, <code>corpus</code>, …).<br>Revise loop: <code>writing/graph.py</code> audits each section (<code>section_auditor.audit_section</code>) and revises it, with <code>max_section_revision_rounds=1</code> in <code>services/research-writing/service.py</code>. When a literature card fails validation, the retry prompt gets the validation errors (D-019).</td></tr>
+<tr><td class="k">4. Evidence</td><td><code>services/research-discovery/discovery/pipeline.py</code>, <code>discovery/analysis.py</code>. Live run on "effects of intermittent fasting on cognitive performance": 120 papers found → 118 unique → 6 selected, with 11 gaps and 5 future-research candidates (<code>docs/reviews/review_1.md</code>).</td></tr>
+</table>
+<p class="note fix"><b>Correction:</b> the old text said the agent "decides its own multi-step plan". It does not: the order of steps is fixed in code. The model decides the queries and the gap analysis. Calling "re-rank" the revise step is weak; the writing audit → revise loop is the real one.</p>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<!-- LAB 2 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 2 — Tool-Using Agent</h3><span class="chip ok">Implemented</span>
+<div class="concept">Tool integration &amp; function calling</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>Discovery acts through four real external tools: the Semantic Scholar, OpenAlex, PubMed and arXiv search APIs, plus open-access full-text retrieval. The local LLM is also called as a tool, for query generation and gap analysis, and it returns structured JSON.</td></tr>
+<tr><td class="k">2. Technical stack</td><td><code>httpx.AsyncClient</code>; <code>asyncio.gather</code> for concurrent calls; one adapter per tool; a shared bounded exponential-backoff GET that honors <code>Retry-After</code>; Ollama <code>format</code> = JSON schema.</td></tr>
+<tr><td class="k">3. Implementation</td><td><code>discovery/sources/semantic_scholar.py</code>, <code>openalex.py</code>, <code>pubmed.py</code> and <code>arxiv.py</code> each wrap one API. All four share <code>_http_retry.py</code> (D-028). The search stage calls all four in parallel. When a source fails, the agent emits a <code>source_error</code> event and continues with the rest. Every result is normalized into one <code>Paper</code> model.</td></tr>
+<tr><td class="k">4. Evidence</td><td><code>services/research-discovery/discovery/sources/*.py</code>; <code>tests/services/test_discovery_http_retry.py</code>. Rate-limit failures that degraded gracefully are recorded in <code>review_1.md</code> and D-028.</td></tr>
+</table>
+<p class="note fix"><b>Correction:</b> the agent does not use a native function-calling API, where the model picks the tool. Code calls the tools, and the model only returns schema-constrained JSON (the queries for each source). Say this plainly if asked.</p>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<!-- LAB 3 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 3 — Skill Creation</h3><span class="chip ok">Implemented</span>
+<div class="concept">Reusable skills (instructions + tools + resources)</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>Each capability is a reusable unit with a typed input/output contract. A caller needs no knowledge of its internals. The writing service also keeps its instructions as separate prompt files. So a skill here is instructions (prompt files), tools (adapters), and a contract.</td></tr>
+<tr><td class="k">2. Technical stack</td><td>Pydantic v2 contracts in <code>shared/contracts/</code> (discovery, writing, verification, qa, trend, pipeline). Markdown prompt files loaded by <code>prompt_loader.py</code>.</td></tr>
+<tr><td class="k">3. Implementation</td><td><code>services/research-discovery/service.py::run_discovery()</code> wraps the whole Discovery pipeline behind <code>DiscoveryRequest → DiscoveryResult</code>. Writing consumes that result through the adapter <code>writing_prep.py</code>. <code>writing/prompts/*.md</code> holds 13 role prompts (write, audit, revise, card build/validate) with a shared <code>editorial_standard.md</code>. The Trend Advisor adds two more reusable skills, velocity and gap mining, behind <code>trend_contract.py</code>.</td></tr>
+<tr><td class="k">4. Evidence</td><td><code>shared/contracts/discovery_contract.py</code>, <code>services/research-discovery/service.py</code>, <code>services/research-writing/writing/prompts/</code>, <code>tests/shared/test_discovery_contract.py</code>.</td></tr>
+</table>
+<p class="note fix"><b>Correction:</b> "Writing consumes this result directly with no rework" is not accurate. <code>writing_prep.py</code> turns the result into an outline and per-paper literature files.</p>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<!-- LAB 4 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 4 — Memory &amp; Retrieval</h3><span class="chip part">Partial</span>
+<div class="concept">Short-term state vs long-term retrieval (RAG)</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>Short-term memory is the LangGraph <code>ReviewState</code>, which lives for one writing run. Persistent memory is a SQLite checkpoint per run, so an interrupted writing graph can resume. Every stage's output is also saved to disk. Retrieval works over the evidence of the current run: tag-based recall of literature-card points when a section is written.</td></tr>
+<tr><td class="k">2. Technical stack</td><td><code>langgraph-checkpoint-sqlite</code> (<code>AsyncSqliteSaver</code>); JSON files; deterministic tag-tree recall (<code>hierarchical_recall.py</code>); open-access full-text retrieval in Discovery (Europe PMC JATS, then OA PDF).</td></tr>
+<tr><td class="k">3. Implementation</td><td><code>writing/graph.py</code> runs the graph with a checkpoint at <code>&lt;run&gt;/checkpoints.sqlite</code> ("run or resume"). <code>orchestrator/pipeline.py</code> writes <code>00_request.json</code>, <code>01_discovery/</code> … <code>04_quality_assurance/result.json</code>, <code>final/</code> and <code>metadata.json</code> under <code>outputs/&lt;slug&gt;_&lt;run_id&gt;/</code>. <code>hierarchical_recall.py</code> provides direct, rollup, leaf and subtree recall of evidence points by tag for each section.</td></tr>
+<tr><td class="k">4. Evidence</td><td><code>orchestrator/pipeline.py</code>, <code>writing/graph.py</code>, <code>writing/modules/hierarchical_recall.py</code>. Saved runs: <code>docs/research-papers/&lt;topic&gt;/&lt;run_id&gt;/</code> (11 runs) and <code>docs/sample-output/</code>.</td></tr>
+</table>
+<p class="note gap"><b>Not implemented:</b> no vector store and no embeddings (<code>relevance.py</code> says this). No run reads earlier runs back. Saved runs are an audit trail, not long-term memory that a later run retrieves. Retrieval is deterministic tag recall, not semantic RAG.</p>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<!-- LAB 5 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 5 — MCP-Style Connector</h3><span class="chip part">Partial / adjacent</span>
+<div class="concept">Model Context Protocol &amp; connectors</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>The project uses the "one interface, many backends" idea. All model calls go through one connector that hides which provider runs. External data sources are reusable connector modules that other agents import; no agent writes its own client.</td></tr>
+<tr><td class="k">2. Technical stack</td><td><code>shared/utilities/llm_provider.py</code> (Ollama <code>/api/chat</code>, optional Gemini, chosen by config). <code>discovery/sources/*.py</code> with a shared <code>_http_retry.py</code>.</td></tr>
+<tr><td class="k">3. Implementation</td><td>Discovery, Writing (<code>adapters/ollama_model.py</code>) and the Trend Advisor ask for model output only through <code>complete_json()</code> / <code>stream_json()</code> / <code>health_check()</code>. The provider is switched in config. The Trend Advisor reuses Discovery's OpenAlex connector: it added <code>topic_counts()</code> and <code>works_for_topic()</code> to <code>openalex.py</code> and wrote no second client, so it keeps the same retry and polite-pool behavior.</td></tr>
+<tr><td class="k">4. Evidence</td><td><code>shared/utilities/llm_provider.py</code>, <code>tests/shared/test_llm_provider.py</code>, <code>discovery/sources/openalex.py</code>, <code>trend_advisor/velocity.py</code>, <code>tests/services/test_openalex_topic_counts.py</code>.</td></tr>
+</table>
+<p class="note fix"><b>Correction:</b> the old text said Discovery and Citation Verification reach Crossref/OpenAlex through the same shared connector. That is false. <code>services/verification/service.py</code> has its own httpx client and its own Crossref/OpenAlex URLs, and Discovery does not call Crossref.</p>
+<p class="note gap"><b>Not implemented:</b> no real MCP server or client. Nothing speaks the Model Context Protocol, and nothing exposes File + SQLite + API as MCP tools.</p>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<!-- LAB 6 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 6 — OpenCLA / OpenClaw Runtime</h3><span class="chip ok">Implemented (custom runtime)</span>
+<div class="concept">Agent runtime with logging</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>One orchestrator runtime runs all the agents for one request: optional Stage 0, then Discovery → Writing → Verification → QA. It logs every stage's output for audit and streams standard progress events to the terminal, an HTTP API, or the browser.</td></tr>
+<tr><td class="k">2. Technical stack</td><td>Python async generators; FastAPI + uvicorn; SSE; an in-memory run registry; JSON audit trail; Rich terminal UI.</td></tr>
+<tr><td class="k">3. Implementation</td><td><code>orchestrator/pipeline.py::run_pipeline()</code> loads each service by file path (<code>_load_service()</code>), runs the stages in order, and saves each stage's <code>result.json</code>. It converts each service's own event format into one standard event: <code>{run_id, stage, service, status, title, message, details, timestamp}</code>. <code>orchestrator/api.py</code> offers <code>POST /research</code> (sync), <code>POST /research/runs</code> + <code>GET /research/runs/{id}</code> + <code>/events</code> (SSE), <code>/advisor/runs…</code>, <code>/health</code> and <code>/system</code>. <code>run_registry.py</code> tracks background runs.</td></tr>
+<tr><td class="k">4. Evidence</td><td><code>orchestrator/pipeline.py</code>, <code>orchestrator/api.py</code>, <code>orchestrator/run_registry.py</code>, <code>tests/orchestrator/</code>. Terminal screenshots for each stage: <code>docs/phase-3/images/03–08*.svg</code>.</td></tr>
+</table>
+<p class="note gap"><b>Note:</b> this is the team's own runtime. It does not use OpenCLA/OpenClaw.</p>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<!-- LAB 7 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 7 — Agentic Node Graph</h3><span class="chip ok">Implemented</span>
+<div class="concept">Graph-based orchestration (LangGraph)</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>Research Writing is a LangGraph state graph. Explicit nodes and edges decide how a draft is built. Conditional edges route on the graph's own state: fan-out per paper, then which section to write next, then when to stop.</td></tr>
+<tr><td class="k">2. Technical stack</td><td>LangGraph (<code>StateGraph</code>, <code>START</code>/<code>END</code>, <code>Send</code>); <code>langgraph-checkpoint-sqlite</code>.</td></tr>
+<tr><td class="k">3. Implementation</td><td><code>writing/graph.py::build_review_graph()</code> has 9 nodes: <code>initialize → define_tag_semantics → discover_documents → [build_literature_card ×N] → build_tag_index → analyze_tag_coverage → plan_writing_order → write_section (loop) → write_review → END</code>. Three conditional edges: <code>dispatch_cards</code>, <code>route_to_section</code>, <code>continue_sections</code>. The graph is compiled with a SQLite checkpointer. A second graph, <code>trend_advisor/gap_mining.py</code>, runs the advisor's swarm.</td></tr>
+<tr><td class="k">4. Evidence</td><td><code>services/research-writing/writing/graph.py</code> lines 913–933; <code>tests/services/test_writing_*.py</code>.</td></tr>
+</table>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<!-- LAB 8 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 8 — Parallel Swarm</h3><span class="chip ok">Implemented</span>
+<div class="concept">Parallel execution, swarms &amp; fault-tolerant merge</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>Worker agents run in parallel, and their results merge into one shared output. When one worker fails, it is audited, retried, or skipped. The whole run does not crash.</td></tr>
+<tr><td class="k">2. Technical stack</td><td>LangGraph <code>Send()</code> for dynamic fan-out; <code>asyncio.gather(..., return_exceptions=True)</code>.</td></tr>
+<tr><td class="k">3. Implementation</td><td>Writing: <code>dispatch_cards()</code> sends one <code>build_literature_card</code> worker per selected paper. Each card is validated, and a failed card is retried with its errors. All cards then merge into <code>build_tag_index</code>. Discovery runs three parallel stages: the 4-source search, full-text fetch, and candidate checks. A failed source emits <code>source_error</code> and the run continues. Trend Advisor: <code>gap_mining.py</code> sends one <code>mine_paper</code> worker per candidate paper. The merge keeps only gaps that several independent papers raise (a recurrence threshold, D-033).</td></tr>
+<tr><td class="k">4. Evidence</td><td><code>writing/graph.py</code> (<code>dispatch_cards</code>), <code>discovery/pipeline.py</code>, <code>trend_advisor/gap_mining.py</code>, <code>tests/services/test_trend_gap_mining.py</code> (an <code>asyncio.Barrier</code> test that fails if the workers run in sequence, D-038). The writing fan-out ran in every real pipeline run (11 saved in <code>docs/research-papers/</code>).</td></tr>
+</table>
+<p class="note gap"><b>Caveat:</b> the gap-mining swarm is tested only against a fake model. Two later advisor runs (ECE and Cloud/DevOps, 28–29 Sep) logged no "model unavailable" warning, but neither flagged any gaps. No run has shown useful gap statements from a real model yet.</p>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<!-- LAB 9 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 9 — Deep Research Agent</h3><span class="chip ok">Implemented</span>
+<div class="concept">Deep research with evidence synthesis</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>Discovery does multi-hop research. It searches several databases, filters for relevance, reads the full text of papers (Discussion, Limitations, Future work), extracts what the authors say is still open, and checks each such claim against a fresh search. Writing then turns that evidence into a cited draft. Every claim must come from a paper in the corpus.</td></tr>
+<tr><td class="k">2. Technical stack</td><td>Semantic Scholar, OpenAlex, PubMed and arXiv (all keyless). Europe PMC JATS / open-access PDF (<code>pypdf</code>, <code>defusedxml</code>). Local LLM with JSON schemas. LangGraph for the writing synthesis. IEEE / Springer citation formatting.</td></tr>
+<tr><td class="k">3. Implementation</td><td>Research path: <code>generate_queries</code> → 4-source search → dedupe → relevance gate → full-text mining (<code>fulltext.py</code>) → <code>mine_future_research</code> → check against a fresh search → <code>analyze_gaps</code>. The output is gaps with evidence and impact, plus a novelty assessment with a confidence level.<br>Evidence synthesis: each paper becomes a literature card of tagged evidence points (<code>LiteratureCard</code>, saved as <code>literature_cards/P00x.json</code>). The cards are indexed by tag, and each section is written only from its tag's points. Citations go into a numbered reference list. Since D-039, the full-text Discussion excerpt also goes to Writing (<code>evidence_depth: abstract_plus_discussion</code>).</td></tr>
+<tr><td class="k">4. Evidence</td><td><code>discovery/analysis.py</code>, <code>discovery/fulltext.py</code>, <code>writing/schemas.py::LiteratureCard</code>. 11 real runs, each with <code>draft.md</code>, <code>references.md</code>, <code>validation_report.md</code>, <code>quality_report.md</code> and <code>paper.pdf</code>, on 3 topics: intermittent fasting, remote work, urban green space (<code>docs/research-papers/</code>).</td></tr>
+</table>
+<p class="note gap"><b>Gaps:</b> the final output has no human-readable "evidence table"; the per-paper evidence lives in the literature-card JSON. D-039 (Discussion text sent to Writing) passes its tests, but its effect on paper length has not been measured in a live run.</p>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<!-- LAB 10 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 10 — Cloud Operations Agent</h3><span class="chip part">Partial (observability + failure handling only)</span>
+<div class="concept">Cloud agents, observability &amp; failure handling</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>Observability and failure handling are built into the runtime. Every stage reports status live, model readiness is checked before a run starts, external APIs are retried with backoff, and failures are reported to the user. The system does not return a confident empty result.</td></tr>
+<tr><td class="k">2. Technical stack</td><td>FastAPI health and status endpoints; SSE event stream; <code>_http_retry.py</code> (bounded exponential backoff, <code>Retry-After</code>); <code>researchgenie/ollama_manager.py</code>; optional Gemini (cloud) provider.</td></tr>
+<tr><td class="k">3. Implementation</td><td>Observe: <code>GET /health</code>, and <code>GET /system</code> (provider, model, <code>model_ready</code>, shown in the UI header before a run). <code>GET /research/runs/{id}</code> returns status and error, and <code>/events</code> streams over SSE. <code>metadata.json</code> records warnings, errors and <code>draft_status</code>.<br>Handle: all 4 sources retry on transient errors (D-028). A failed source degrades gracefully. <code>PipelineError</code> becomes HTTP 502. <code>ollama_manager</code> detects Ollama, starts it, installs it, and pulls the model. A timeout is reported as a timeout, not as a failed install (D-042). The Gemini key moved to a header after a key leak in an error message (D-023).</td></tr>
+<tr><td class="k">4. Evidence</td><td><code>orchestrator/api.py</code>, <code>discovery/sources/_http_retry.py</code>, <code>researchgenie/ollama_manager.py</code>, <code>tests/researchgenie/test_ollama_manager.py</code>, <code>tests/orchestrator/test_api.py</code>, DECISIONS D-023 / D-028 / D-042.</td></tr>
+</table>
+<p class="note gap"><b>Not implemented:</b> no cloud deployment, no Dockerfile or CI pipeline in the repo, and no agent that diagnoses and fixes a failed deployment. Docker was used only to test install paths (D-024). A successful <code>winget</code> install was never observed, and no full draft has been generated through Gemini.</p>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<!-- LAB 11 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 11 — Agentic SDLC Factory</h3><span class="chip no">Process only, not a product feature</span>
+<div class="concept">Agentic SDLC (requirements → tested code)</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>The team built the project itself as a requirements → tested-code pipeline: a written spec, then implementation, then tests. Each decision was logged with its reason, and packaging was verified. ResearchGenie does not generate code itself.</td></tr>
+<tr><td class="k">2. Technical stack</td><td>pytest; setuptools / <code>pyproject.toml</code> (two console entry points); git + GitHub (PR workflow); a Markdown spec and decision log.</td></tr>
+<tr><td class="k">3. Implementation</td><td>Trend Advisor example: <code>docs/specs/trend-advisor-spec.md</code> (commit e823efe, 12 Sep), then the implementation (05c2c9e, 57dfdb9), then tickets closed and four acceptance criteria pinned by tests (2df0594, c64b8fd, D-038). Every change is logged with its reason in <code>DECISIONS.md</code> (D-001 to D-042). Fixes on a feature branch merged through PR #1. <code>TESTING_PROTOCOL.md</code> lists the claims this machine cannot verify. The wheel and sdist were installed into fresh isolated venvs (D-022 / D-024).</td></tr>
+<tr><td class="k">4. Evidence</td><td><code>tests/</code>: 319 test functions (grep count). Last full suite recorded: 184 passed, 1 skipped, including the live-model integration test (D-028). <code>docs/specs/</code>, <code>DECISIONS.md</code>, <code>TESTING_PROTOCOL.md</code>, <code>pyproject.toml</code>.</td></tr>
+</table>
+<p class="note gap"><b>Not implemented:</b> no agent that turns requirements into code, and no CI. Tests are run by hand. A later full-suite count after D-028 is not recorded in one place, so do not quote "320 passing".</p>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<!-- LAB 12 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 12 — Safety &amp; Governance</h3><span class="chip ok">Implemented (no rollback)</span>
+<div class="concept">Approval gates, audit logs, evaluation, rollback</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>A human approves before the agent acts. Every stage leaves an audit record. The output is evaluated by an independent, deterministic checker, not by the model that wrote it. Unsupported content is removed or flagged; it is never silently "repaired".</td></tr>
+<tr><td class="k">2. Technical stack</td><td>Rich <code>Confirm</code> prompts; JSON audit artifacts; a deterministic QA service (no LLM); Crossref/OpenAlex DOI checks; <code>completeness.py</code>.</td></tr>
+<tr><td class="k">3. Implementation</td><td>Approval gates: "Start research?" (<code>researchgenie/cli.py:203</code>). "Lock in topic?", default <b>No</b> (<code>advisor_cli.py:263</code>). "Run the full pipeline now?" (<code>advisor_cli.py:338</code>). The orchestrator never picks a topic by itself (D-034).<br>Audit: per-stage <code>result.json</code>, <code>card_audits/*.json</code>, and <code>metadata.json</code>.<br>Evaluation: Verification classifies each reference as verified, invalid or unverifiable, and never repairs one. QA scores 0–5 on four dimensions plus an overall score, with no LLM calls. <code>draft_status</code> (complete, partial or failed) is computed from the rendered paper.<br>Containment: a section that fails its audit is replaced with a notice, and the failed draft is kept in the audit artifact (<code>graph.py:139–144</code>). API keys are stored only in the local config.</td></tr>
+<tr><td class="k">4. Evidence</td><td><code>services/quality-assurance/service.py</code>, <code>services/verification/service.py</code>, <code>services/research-writing/completeness.py</code>, <code>tests/services/test_qa_service.py</code>, <code>tests/services/test_verification_service.py</code>, <code>tests/services/test_completeness.py</code>. Example reports: <code>docs/sample-output/final/quality_report.md</code>, <code>validation_report.md</code>.</td></tr>
+</table>
+<p class="note gap"><b>Not implemented:</b> no rollback. The SQLite checkpoint lets the writing graph resume, not undo. Each run writes a new folder, so earlier runs are never overwritten, but nothing reverts a run.</p>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<!-- LAB 13 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 13 — Discipline-Specific Agents</h3><span class="chip part">Partial (data half verified, model half not)</span>
+<div class="concept">Domain worklet for the team's discipline</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>The Trend &amp; Gap Advisor (optional Stage 0) is specialized for each engineering discipline. A student picks a domain, and the advisor ranks the rising research topics in that field. The ranking uses real publication counts, not the model's opinion. The core worklet itself is a CSE (AI) research-assistant agent.</td></tr>
+<tr><td class="k">2. Technical stack</td><td>OpenAlex field and topic APIs, with counts by year; arXiv as a second source for CS-adjacent domains; LangGraph <code>Send</code> gap-mining swarm; separate entry point <code>researchgenie-advise</code>.</td></tr>
+<tr><td class="k">3. Implementation</td><td><code>advisor_cli.DOMAINS</code>: CS/AI/ML, ECE, EEE, Mechanical, Civil, Cloud/DevOps, and Other (free text). <code>trend_advisor/velocity.py</code> computes growth as papers in the last 3 complete years ÷ papers in the 3 years before, using OpenAlex field IDs checked against the live API. <code>gap_mining.py</code> mines the stated future work of each topic's papers. <code>parse_pick</code> resolves "go with #2" in code, not with the model. A confirmed pick fills a <code>ResearchRequest</code> and can chain into the 4-stage pipeline under one run id (D-040).</td></tr>
+<tr><td class="k">4. Evidence</td><td><code>services/trend-advisor/</code>, <code>researchgenie/advisor_cli.py</code>, <code>tests/services/test_trend_*.py</code>. 8 saved advisor runs in 6 domains: <code>outputs/{cs-ai-ml ×3, ece, eee, civil, mechanical, cloud-devops}_*/00_trend_advisor/result.json</code>. Each has 6–8 ranked topics with real growth numbers and example DOIs.</td></tr>
+</table>
+<p class="note gap"><b>Gap:</b> every saved run has 0 gap flags. Earlier runs logged "local model was unavailable", which means gaps were not checked, not that none exist. Gap statements, the converging chat, question drafting and the live hand-off to the pipeline have not been shown working with a real model (TILL_NOW.md, "Next technical task").</p>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<!-- LAB 14 -->
+<section class="lab">
+<div class="lab-head"><h3>Lab 14 — Capstone Project Studio</h3><span class="chip ok">Implemented</span>
+<div class="concept">End-to-end, team-owned agentic system</div></div>
+<table>
+<tr><td class="k">1. Concept applied</td><td>ResearchGenie is one installable system that uses the course concepts together. It has an agent loop, tools, skills with contracts, persistent state, a runtime with an audit trail, a node graph, a parallel swarm, deep research, approval gates and independent evaluation. Users reach it through a terminal app, an HTTP API, or a browser workbench.</td></tr>
+<tr><td class="k">2. Technical stack</td><td>Python 3.11, asyncio, Pydantic v2, httpx, LangGraph + SQLite checkpoints, FastAPI + uvicorn + SSE, Rich, Ollama <code>qwen3.5:9b</code> (optional Gemini), pypdf, LaTeX export via tectonic (IEEEtran / llncs), single-file HTML front end, pytest.</td></tr>
+<tr><td class="k">3. Implementation</td><td>Entry points: <code>researchgenie</code> (setup wizard, then a request, a live progress UI, and the result folder) and <code>researchgenie-advise</code> (Stage 0). Web: <code>uvicorn orchestrator.api:app</code> serves <code>frontend/index.html</code>, which starts from a field (advisor) or a question, and shows a stage tracker, a live event log, scores, the draft, and downloads (<code>draft.md</code>, <code>paper.tex</code>, <code>paper.pdf</code>). Flow: [Stage 0] → Discovery → Writing → Verification → QA → <code>final/</code> + LaTeX/PDF.</td></tr>
+<tr><td class="k">4. Evidence</td><td>Full live run with the integration test: 913 s (D-016). 11 real runs with PDFs in <code>docs/research-papers/</code>. <code>docs/sample-output/</code>. Terminal screenshots in <code>docs/phase-3/images/</code>. Write-ups in <code>docs/reviews/review_1–3.md</code>. Metrics in <code>analytics_and_results.md</code>. Repo: <code>TheIntruder007/AI-Research-Assistant</code> (private).</td></tr>
+</table>
+<p class="note gap"><b>Open items:</b> not published to PyPI (<code>pip install researchgenie</code> works only from a local wheel). The advisor's model half is unverified. No Gemini draft has been observed. The effect of D-039 on paper length is unmeasured.</p>
+<table class="marks"><tr><th>Concept (2)</th><th>Stack (2)</th><th>Implementation (4)</th><th>Explanation &amp; demo (2)</th><th>Total (10)</th><th>Remarks</th></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+</section>
+
+<h2>Marks summary</h2>
+<div class="wrap"><table>
+<tr><th>Lab</th><th>Title</th><th>Status</th><th>Main code</th><th>Max</th><th>Marks awarded</th></tr>
+<tr><td>1</td><td>Agent vs Chatbot</td><td><span class="chip ok">Implemented</span></td><td><code>discovery/pipeline.py</code></td><td>10</td><td></td></tr>
+<tr><td>2</td><td>Tool-Using Agent</td><td><span class="chip ok">Implemented</span></td><td><code>discovery/sources/</code></td><td>10</td><td></td></tr>
+<tr><td>3</td><td>Skill Creation</td><td><span class="chip ok">Implemented</span></td><td><code>shared/contracts/</code>, <code>writing/prompts/</code></td><td>10</td><td></td></tr>
+<tr><td>4</td><td>Memory &amp; Retrieval</td><td><span class="chip part">Partial</span></td><td><code>orchestrator/pipeline.py</code>, <code>hierarchical_recall.py</code></td><td>10</td><td></td></tr>
+<tr><td>5</td><td>MCP-Style Connector</td><td><span class="chip part">Partial</span></td><td><code>llm_provider.py</code>, <code>sources/openalex.py</code></td><td>10</td><td></td></tr>
+<tr><td>6</td><td>OpenCLA / OpenClaw Runtime</td><td><span class="chip ok">Custom runtime</span></td><td><code>orchestrator/</code></td><td>10</td><td></td></tr>
+<tr><td>7</td><td>Agentic Node Graph</td><td><span class="chip ok">Implemented</span></td><td><code>writing/graph.py</code></td><td>10</td><td></td></tr>
+<tr><td>8</td><td>Parallel Swarm</td><td><span class="chip ok">Implemented</span></td><td><code>graph.py::dispatch_cards</code>, <code>gap_mining.py</code></td><td>10</td><td></td></tr>
+<tr><td>9</td><td>Deep Research Agent</td><td><span class="chip ok">Implemented</span></td><td><code>discovery/analysis.py</code>, <code>fulltext.py</code></td><td>10</td><td></td></tr>
+<tr><td>10</td><td>Cloud Operations Agent</td><td><span class="chip part">Partial</span></td><td><code>api.py</code>, <code>_http_retry.py</code>, <code>ollama_manager.py</code></td><td>10</td><td></td></tr>
+<tr><td>11</td><td>Agentic SDLC Factory</td><td><span class="chip no">Process only</span></td><td><code>docs/specs/</code>, <code>tests/</code>, <code>DECISIONS.md</code></td><td>10</td><td></td></tr>
+<tr><td>12</td><td>Safety &amp; Governance</td><td><span class="chip ok">No rollback</span></td><td><code>quality-assurance/</code>, <code>verification/</code>, CLI gates</td><td>10</td><td></td></tr>
+<tr><td>13</td><td>Discipline-Specific Agents</td><td><span class="chip part">Partial</span></td><td><code>services/trend-advisor/</code></td><td>10</td><td></td></tr>
+<tr><td>14</td><td>Capstone Project Studio</td><td><span class="chip ok">Implemented</span></td><td>whole repo</td><td>10</td><td></td></tr>
+<tr><th colspan="4">Total</th><th>140</th><th></th></tr>
+</table></div>
+<p style="margin-top:28px">Reviewer signature: ______________________ &nbsp;&nbsp;&nbsp; Date: ________________</p>
+</main>
+</body>
+</html>

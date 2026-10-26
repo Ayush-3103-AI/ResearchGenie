@@ -109,7 +109,7 @@ def _gemini_schema(schema: dict) -> dict:
 
 async def _stream_json_gemini(*, system: str, user: str, schema: dict,
                               model: str | None, max_tokens: int,
-                              temperature: float) -> AsyncIterator[dict]:
+                              temperature: float, think: bool = True) -> AsyncIterator[dict]:
     """Gemini's generateContent endpoint does not stream partial structured
     JSON usefully, so this yields the complete response as a single delta,
     then "done" — callers already only look at the final Completion for
@@ -131,6 +131,10 @@ async def _stream_json_gemini(*, system: str, user: str, schema: dict,
             "responseSchema": _gemini_schema(schema),
         },
     }
+    if not think:
+        # Gemini 2.5 thinks by default and counts it against maxOutputTokens,
+        # so a long answer (the Dev Agent's patch) could be cut off by it.
+        payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
     comp = Completion()
     try:
         async with httpx.AsyncClient(timeout=120) as http:
@@ -193,11 +197,11 @@ async def stream_json(*, system: str, user: str, schema: dict,
     against max_tokens, so a simple/deterministic task should pass think=False —
     otherwise a tight max_tokens budget can be exhausted by reasoning before any
     actual JSON content is produced, silently yielding an empty (refusal-looking)
-    completion. Ignored by the Gemini provider (no equivalent setting)."""
+    completion. For Gemini, think=False sets a zero thinking budget."""
     if AI_PROVIDER == "gemini":
         async for event in _stream_json_gemini(
             system=system, user=user, schema=schema, model=model,
-            max_tokens=max_tokens, temperature=temperature,
+            max_tokens=max_tokens, temperature=temperature, think=think,
         ):
             yield event
         return
@@ -274,6 +278,44 @@ async def complete_json(*, system: str, user: str, schema: dict,
         if event["type"] == "done":
             comp = event["completion"]
     return comp
+
+
+async def complete_tools(*, system: str, user: str, tools: list[dict],
+                         model: str | None = None, max_tokens: int = 800,
+                         temperature: float = 0.2) -> list[dict] | None:
+    """One chat turn that may call tools (Ollama's /api/chat `tools`, #16).
+    Returns the calls as [{"name": str | None, "arguments": Any}], unchecked —
+    the caller validates them. None means this provider can't call tools here
+    (Gemini, or an Ollama model without tool support), so the caller falls back.
+    Raises LLMProviderError when the model can't be reached at all."""
+    if AI_PROVIDER == "gemini":
+        return None  # ponytail: Gemini function calling not wired; the domain fallback covers it
+    model = model or DEFAULT_MODEL
+    payload = {
+        "model": model,
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        "tools": tools, "stream": False, "think": False,
+        "options": {"temperature": temperature, "num_predict": max_tokens,
+                    "num_ctx": _context_window_for(max_tokens, len(system) + len(user) + len(json.dumps(tools)))},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=120) as http:
+            resp = await http.post(f"{OLLAMA_HOST}/api/chat", json=payload)
+    except httpx.ConnectError:
+        raise LLMProviderError("Could not reach the local Ollama server at "
+                               f"{OLLAMA_HOST}. Start it with: ollama serve") from None
+    except httpx.HTTPError as error:
+        raise LLMProviderError(f"Ollama tool call failed ({type(error).__name__}).") from None
+    if resp.status_code == 400 and "does not support tools" in resp.text:
+        return None
+    if resp.status_code == 404:
+        raise LLMProviderError(f"Model '{model}' is not installed in Ollama. Run: ollama pull {model}")
+    if resp.status_code >= 400:
+        raise LLMProviderError(f"Ollama returned an error ({resp.status_code}).")
+    calls = ((resp.json().get("message") or {}).get("tool_calls")) or []
+    return [{"name": (c.get("function") or {}).get("name"),
+             "arguments": (c.get("function") or {}).get("arguments")}
+            for c in calls if isinstance(c, dict)]
 
 
 async def health_check(model: str | None = None) -> bool:

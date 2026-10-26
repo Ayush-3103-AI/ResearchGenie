@@ -22,7 +22,7 @@ import httpx
 from defusedxml.common import DefusedXmlException
 from pypdf import PdfReader
 
-from shared.utilities import scholarly_gateway
+from shared.utilities import response_cache, scholarly_gateway
 
 EPMC_SEARCH = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 EPMC_FULLTEXT = "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
@@ -219,13 +219,25 @@ async def _fetch(http: httpx.AsyncClient, paper) -> str | None:
     return text
 
 
+def _cache_key(paper) -> str:
+    # The same paper found again, by its most stable identifier.
+    return f"fulltext {paper.pmcid or paper.doi or paper.pdf_url}"
+
+
 async def fetch_future_sections(http: httpx.AsyncClient, paper) -> bool:
-    """Try to populate paper.future_text. Returns True on success. Never raises."""
-    try:
-        # wait_for (not asyncio.timeout) so Python 3.10 works too
-        text = await asyncio.wait_for(_fetch(http, paper), timeout=75)
-    except Exception:
-        return False
+    """Try to populate paper.future_text. Returns True on success. Never raises.
+    Extracted text is cached with no expiry (#6); a miss is not cached."""
+    text = response_cache.get_text(_cache_key(paper))
+    if text:
+        scholarly_gateway.count_cache_hit()
+    else:
+        try:
+            # wait_for (not asyncio.timeout) so Python 3.10 works too
+            text = await asyncio.wait_for(_fetch(http, paper), timeout=75)
+        except Exception:
+            return False
+        if text:
+            response_cache.put_text(_cache_key(paper), text)
     if text:
         paper.future_text = text
         return True

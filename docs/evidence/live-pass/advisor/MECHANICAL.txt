@@ -1,0 +1,28 @@
+Analysing publication velocity for MECHANICAL...
+Ranked 8 rising topic(s) by publication growth.
+Mining future-work and limitations across 8 topic(s) in parallel...
+2 topic(s) flagged as recurring gaps by multiple independent papers.
+Saved to: E:\Agentic AI\ResearchGenie-Full\outputs\mechanical_dae6cb8a8a7f493c83a7209532f9f5e3
+1. Industrial Vision Systems and Defect Detection  [recurring gap]  growth 2.02x
+   gap: Future advancements in YOLO architectures are envisioned to focus on energy conservation while maintaining high inference rates for constrained deployment environments.
+   gap: CLIP falls short on anomaly classification and segmentation tasks.
+2. High Entropy Alloys Studies  [recurring gap]  growth 1.69x
+   gap: The computational front of high entropy materials is currently lagging behind the experimental front, where trial-and-error synthesis remains faster than running predictions in silico.
+   gap: There are few instances of calculated or predicted properties for high entropy oxides, such as electronic properties and adsorption energies.
+   gap: The text hopes to stimulate further research into the study of distorted lattices in crystalline solids.
+3. Robotic Process Automation Applications  [hot but crowded]  growth 2.35x
+4. Industrial Engineering and Technologies  [under-explored]  growth 2.27x
+5. Power Line Inspection Robots  [hot but crowded]  growth 1.97x
+   gap: The detection of defects other than bird's nests currently requires manual inspection due to limited datasets and the complex nature of these defects.
+   gap: Future work is needed to collect more data and apply reasonable data enhancement and neural network models to detect various line defects.
+6. Infrared Target Detection Methodologies  [under-explored]  growth 1.86x
+   gap: Existing techniques struggle when the target has high similarities with the background due to largely overlooking effective global information modeling.
+7. Satellite Communication Systems  [hot but crowded]  growth 1.8x
+   gap: The paper highlights mega-constellation security problems as a specific area requiring future research.
+   gap: Commercialization issues related to LEO satellite constellations are identified for future investigation.
+8. Extraction and Separation Processes  [hot but crowded]  growth 1.63x
+
+--- stderr ---
+fontTools is required to fully parse the encoding of a CFF Type1 font in font dictionary {'/BaseFont': '/TQNWUW+TimesNewRomanPS-BoldItalicMT', '/Encoding': '/WinAnsiEncoding', '/FirstChar': 97, '/FontDescriptor': IndirectObject(38, 0, 1660822930160), '/LastChar': 115, '/Subtype': '/Type1', '/Type': '/Font', '/Widths': [500, 0, 444, 0, 444, 0, 0, 556, 278, 0, 0, 0, 778, 556, 0, 0, 0, 0, 389]}, but is not installed. Consider installing fontTools if you encounter encoding problems.
+fontTools is required to fully parse the encoding of a CFF Type1 font in font dictionary {'/BaseFont': '/ZKJPJD+TimesNewRomanPS-BoldItalicMT', '/Encoding': '/WinAnsiEncoding', '/FirstChar': 32, '/FontDescriptor': IndirectObject(38, 0, 1660822686928), '/LastChar': 116, '/Subtype': '/Type1', '/Type': '/Font', '/Widths': [250, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 444, 0, 500, 0, 278, 0, 0, 0, 778, 556, 500, 0, 0, 389, 389, 278]}, but is not installed. Consider installing fontTools if you encounter encoding problems.
+fontTools is required to fully parse the encoding of a CFF Type1 font in font dictionary {'/Type': '/Font', '/Subtype': '/Type1', '/BaseFont': '/SEQOPP+Helvetica', '/Encoding': '/WinAnsiEncoding', '/FirstChar': 48, '/FontDescriptor': IndirectObject(1911, 0, 1660822589680), '/LastChar': 56, '/Widths': [556, 556, 556, 556, 556, 556, 556, 0, 556]}, but is not installed. Consider installing fontTools if you encounter encoding problems.

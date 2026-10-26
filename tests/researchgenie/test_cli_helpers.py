@@ -28,3 +28,22 @@ def test_the_approval_answer_accepts_enter_or_a_drop_list():
     assert parse_approval("Drop 2, 5 7", 8) == [2, 5, 7]
     assert parse_approval("drop 9", 8) is None
     assert parse_approval("maybe", 8) is None
+
+
+def test_a_short_budget_offers_the_key_or_the_reduced_plan(monkeypatch):
+    from rich.console import Console
+
+    from researchgenie import cli
+    from shared.contracts.pipeline_contract import ResearchRequest
+    request = ResearchRequest(research_question="Q?")
+    console = Console(quiet=True)
+    monkeypatch.setattr(cli, "check_budget", lambda request: {"plan": "reduced", "reason": "short"})
+    monkeypatch.setattr(cli.Prompt, "ask", lambda *a, **k: "2")
+    assert cli._budget_choice(console, Config(), request).budget_plan == "reduced"
+
+    added = []
+    monkeypatch.setattr(cli.Prompt, "ask", lambda *a, **k: "1")
+    monkeypatch.setattr(cli, "setup_scholarly_access", lambda console, config: added.append(config))
+    monkeypatch.setattr(cli.rg_config, "save", lambda config: None)
+    assert cli._budget_choice(console, Config(), request).budget_plan == "auto"  # the run checks again
+    assert added

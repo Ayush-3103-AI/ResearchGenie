@@ -1,0 +1,8 @@
+- [1] S. K. Joy and A. K. Sharma, "Exploring the Impact of Remote Work on Employee Productivity," , 2025, doi: 10.31124/advance.174607645.58020342/v1.
+- [2] D. A. R, "Impact Of Hybrid And Remote Work On Employee Engagement And Productivity," , 2022, doi: 10.53555/kuey.v30i5.10782.
+- [3] A. Fatima, "IMPACT OF REMOTE WORK ON EMPLOYEE PRODUCTIVITY AND JOB SATISFACTION," *International Journal of Data Science and IoT Management System*, 2025, doi: 10.65460/vol2_iss1_a4.
+- [4] S. Alenazi, J. Mohanty, and M. Srinivasan, "“The impact of COVID-19 on employee productivity and the future of remote work”," *PLoS ONE*, 2026, doi: 10.1371/journal.pone.0351968.
+- [5] H. J. D. M. N. J. Ashish Mishra, ""The Impact of Remote Work on Employee Productivity and Work-Life Balance"," , 2025, doi: 10.52783/eel.v15i1.2781.
+- [6] D. N. J. P. A. K. S. J. D. N. T. Dr. Sarika Patil, "THE IMPACT OF REMOTE WORK ON WORK-LIFE BALANCE AND EMPLOYEE PRODUCTIVITY," *Journal of Research Administration*, 2024.
+- [7] I. Tandon and A. Srivastava, "The Impact of Remote Work on Employee Engagement and Productivity," *International Journal For Multidisciplinary Research*, 2024, doi: 10.36948/ijfmr.2024.v06i06.34103.
+- [8] N. Lesjak, "The impact of remote work on employee productivity," *University of Maribor digital library (University of Maribor)*, 2026.

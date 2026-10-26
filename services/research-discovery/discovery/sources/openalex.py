@@ -34,8 +34,8 @@ async def search(http: httpx.AsyncClient, queries: dict, limit: int,
         # OpenAlex lacks its abstract — callers pass require_abstract=False there.
         params["filter"] = "has_abstract:true"
 
-    # OpenAlex is the sole backend for the per-candidate verification searches,
-    # so a transient 429/5xx must not silently lose a candidate's evidence —
+    # OpenAlex backs the per-candidate verification searches the budget allows
+    # (Crossref the rest, #7), so a transient 429/5xx must not silently lose a candidate's evidence —
     # the gateway retries it (and never retries a not_enough_credits 429).
     resp = await scholarly_gateway.get(http, SEARCH_URL, params=params)
     resp.raise_for_status()

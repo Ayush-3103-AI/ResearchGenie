@@ -3,7 +3,8 @@
 Takes a WritingResult (Service 2's output) and checks each rendered
 reference-list entry's DOI against free, keyless scholarly APIs (Crossref,
 then OpenAlex as a fallback — the same "no external key" pattern Service 1
-uses, see DECISIONS.md D-007). Both lookups go through the scholarly gateway
+uses, see DECISIONS.md D-007), up to 100 DOIs per filter request rather
+than one request each (#7). Both lookups go through the scholarly gateway
 (#4), so they share Discovery's pacing, retry, identity and breaker: a
 throttled lookup is retried, and a lookup that still gets no answer is
 "unverifiable", never "invalid". This service never invents or silently
@@ -28,8 +29,8 @@ from shared.contracts.verification_contract import (  # noqa: E402
 )
 from shared.utilities import scholarly_gateway  # noqa: E402
 
-CROSSREF_URL = "https://api.crossref.org/works/{doi}"
-OPENALEX_URL = "https://api.openalex.org/works/doi:{doi}"
+CROSSREF_URL = "https://api.crossref.org/works"
+OPENALEX_URL = "https://api.openalex.org/works"
 REQUEST_TIMEOUT = 10.0
 
 # Matches a DOI trailed by "doi: 10.x/y" (IEEE/Vancouver style) or
@@ -54,32 +55,73 @@ def extract_doi(reference_entry: str) -> str | None:
     return None
 
 
-async def _lookup(client: httpx.AsyncClient, url: str) -> bool | str:
-    """True: the DOI resolves. False: the provider says it does not (404).
-    A string: no answer, saying why — "exhausted" when the gateway skipped
-    the provider, else "failed" (retries used up, network error)."""
-    try:
-        resp = await scholarly_gateway.get(client, url, timeout=REQUEST_TIMEOUT)
-    except scholarly_gateway.ProviderExhausted:
-        return "exhausted"
-    except httpx.HTTPError:
-        return "failed"
-    if resp.status_code == 200:
-        return True
-    return False if resp.status_code == 404 else "failed"
+def _bare_doi(doi: str | None) -> str:
+    """OpenAlex answers "https://doi.org/10.x/y", Crossref "10.X/Y"."""
+    return (doi or "").lower().removeprefix("https://doi.org/")
+
+
+async def _lookup(client: httpx.AsyncClient, source: str, dois: list[str]) -> dict[str, bool | str]:
+    """Each DOI's outcome at one provider, asked with one OR-filter request
+    per DOI_BATCH DOIs rather than one request per DOI (#7). True: found.
+    False: the provider answered without it. A string: no answer, saying
+    why — "exhausted" when the gateway skipped the provider, else "failed"
+    (retries used up, network error)."""
+    # ponytail: a DOI holding "," or "|" breaks its batch's filter (HTTP 400,
+    # the batch reads "failed"); none is expected from extract_doi's patterns.
+    outcomes: dict[str, bool | str] = {}
+    for start in range(0, len(dois), scholarly_gateway.DOI_BATCH):
+        batch = dois[start:start + scholarly_gateway.DOI_BATCH]
+        if source == "Crossref":  # repeated doi filters are OR-ed
+            url, params = CROSSREF_URL, {"filter": ",".join(f"doi:{d}" for d in batch),
+                                         "rows": len(batch)}
+        else:
+            url, params = OPENALEX_URL, {"filter": "doi:" + "|".join(batch), "per-page": len(batch)}
+        try:
+            resp = await scholarly_gateway.get(client, url, params=params, timeout=REQUEST_TIMEOUT)
+            body = resp.json() if resp.status_code == 200 else None
+        except scholarly_gateway.ProviderExhausted:
+            outcomes.update(dict.fromkeys(batch, "exhausted"))
+            continue
+        except (httpx.HTTPError, ValueError):
+            body = None
+        if body is None:
+            outcomes.update(dict.fromkeys(batch, "failed"))
+            continue
+        works = (body.get("message") or {}).get("items") if source == "Crossref" else body.get("results")
+        found = {_bare_doi(w.get("DOI") or w.get("doi")) for w in works or []}
+        outcomes.update({d: d in found for d in batch})
+    return outcomes
+
+
+async def check_references(client: httpx.AsyncClient, entries: list[str]) -> list[ReferenceCheck]:
+    """Every entry's check: Crossref first, then OpenAlex for the DOIs
+    Crossref did not confirm, each asked in batches (#7)."""
+    dois = [extract_doi(entry) for entry in entries]
+    pending = list(dict.fromkeys(d for d in dois if d))
+    outcomes: dict[str, list[bool | str]] = {d: [] for d in pending}
+    verified_by: dict[str, str] = {}
+    for source in ("Crossref", "OpenAlex"):
+        for doi, outcome in (await _lookup(client, source, pending)).items():
+            if outcome is True:
+                verified_by[doi] = source
+            else:
+                outcomes[doi].append(outcome)
+        pending = [d for d in pending if d not in verified_by]
+    return [_check(entry, doi, verified_by.get(doi), outcomes.get(doi, []))
+            for entry, doi in zip(entries, dois)]
 
 
 async def check_reference(client: httpx.AsyncClient, reference_entry: str) -> ReferenceCheck:
-    doi = extract_doi(reference_entry)
+    return (await check_references(client, [reference_entry]))[0]
+
+
+def _check(reference_entry: str, doi: str | None, source: str | None,
+           outcomes: list[bool | str]) -> ReferenceCheck:
     if doi is None:
         return ReferenceCheck(reference_entry=reference_entry, verified=False, issue=NO_DOI_ISSUE)
-    outcomes = []
-    for source, url in (("Crossref", CROSSREF_URL), ("OpenAlex", OPENALEX_URL)):
-        outcome = await _lookup(client, url.format(doi=doi))
-        if outcome is True:
-            return ReferenceCheck(reference_entry=reference_entry, doi=doi, verified=True,
-                                  verification_source=source)
-        outcomes.append(outcome)
+    if source is not None:
+        return ReferenceCheck(reference_entry=reference_entry, doi=doi, verified=True,
+                              verification_source=source)
     if "exhausted" in outcomes:
         return ReferenceCheck(
             reference_entry=reference_entry, doi=doi, verified=False,
@@ -143,12 +185,14 @@ async def run_verification(request: VerificationRequest, *,
 
     async def check_all() -> list[ReferenceCheck]:
         async with httpx.AsyncClient(transport=transport) as client:
-            return [await check_reference(client, entry) for entry in references]
+            return await check_references(client, references)
 
     gateway_run = scholarly_gateway.Run()
     checking = gateway_run.task(check_all())
     async for event in gateway_run.relay(checking):
         yield event
+    if (cached := gateway_run.cache_event()) is not None:
+        yield cached
 
     verified: list[ReferenceCheck] = []
     invalid: list[ReferenceCheck] = []

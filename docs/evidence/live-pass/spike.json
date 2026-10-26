@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "valid": 12,
+  "sensible": 11,
+  "total": 12,
+  "keep_model_step": true,
+  "summary": "12/12 valid tool plans, 11/12 sensible",
+  "seconds": 46
+}

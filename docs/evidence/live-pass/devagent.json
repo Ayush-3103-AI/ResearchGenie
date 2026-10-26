@@ -1,0 +1,10 @@
+{
+  "ok": false,
+  "green": false,
+  "audit": null,
+  "status": null,
+  "rounds": null,
+  "red_first": false,
+  "model": "gemini-2.5-flash (Gemini)",
+  "seconds": 62
+}
