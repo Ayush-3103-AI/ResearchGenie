@@ -1,10 +1,10 @@
 # Live pass
 
-Written by `scripts/live_pass.py` on 2026-10-26 18:45 UTC. Provider: ollama qwen3.5:9b, commit ad6ec33. Every number below is measured, failures included.
+Written by `scripts/live_pass.py` on 2026-10-26 19:10 UTC. Provider: ollama qwen3.5:9b, commit ad6ec33. Every number below is measured, failures included.
 
 | Check | Ticket | Result | Measured |
 |---|---|---|---|
-| Full test suite | — | FAIL |  |
+| Full test suite | — | PASS | 553 passed, 1 skipped, 1 warning in 537.49s (0:08:57) |
 | Tool-calling spike | #16 | PASS | 12/12 valid tool plans, 11/12 sensible; model step stays on |
 | Doctor recovers a run after Ollama is stopped | #13 | FAIL | the run did not fail: completed →  →  |
 | Dev Agent APA 7, red → green, no hand edits | #26 | FAIL | gemini-2.5-flash (Gemini): None in None round(s), red first: False; suite after patch:  |
