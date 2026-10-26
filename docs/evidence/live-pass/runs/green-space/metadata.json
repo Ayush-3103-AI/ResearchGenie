@@ -1,0 +1,33 @@
+{
+  "run_id": "f70b79d1aa6245bfb85ed96250dbaf0e",
+  "research_question": "How does urban green space access affect residents' mental health?",
+  "timings": {
+    "discovery_seconds": 242.1,
+    "writing_seconds": 671.1,
+    "verification_seconds": 3.0,
+    "quality_assurance_seconds": 0.0
+  },
+  "overall_quality_score": 4.25,
+  "draft_status": "partial",
+  "target_words": null,
+  "actual_words": 2238,
+  "length_status": null,
+  "evidence_limited_sections": [],
+  "broken_sections": [
+    "Conclusion"
+  ],
+  "duplicate_sections": [],
+  "credits_used": {
+    "PubMed (NCBI)": 0,
+    "OpenAlex": 60,
+    "Europe PMC": 0,
+    "Open-access host": 0,
+    "Crossref": 0
+  },
+  "memory": {
+    "enabled": true,
+    "count": 10,
+    "reused_excerpts": 0,
+    "seeded_papers": 10
+  }
+}

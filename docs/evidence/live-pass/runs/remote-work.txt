@@ -1,0 +1,94 @@
+{
+  "run_id": "aeee52ef5e8147ea8a5cf33a88b3ad57",
+  "state": "completed",
+  "stage": "quality_assurance",
+  "run_directory": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-is-the-impact-of-remote-work-on-employee-productivity_aeee52ef5e8147ea8a5cf33a88b3ad57",
+  "last_event": {
+    "type": "progress",
+    "stage": "quality_assurance",
+    "status": "done",
+    "message": "Overall quality score: 4.2/5.0.",
+    "timestamp": "2026-10-26T16:43:43.600390+00:00"
+  },
+  "final_files": {
+    "draft.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-is-the-impact-of-remote-work-on-employee-productivity_aeee52ef5e8147ea8a5cf33a88b3ad57\\final\\draft.md",
+    "quality_report.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-is-the-impact-of-remote-work-on-employee-productivity_aeee52ef5e8147ea8a5cf33a88b3ad57\\final\\quality_report.md",
+    "validation_report.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-is-the-impact-of-remote-work-on-employee-productivity_aeee52ef5e8147ea8a5cf33a88b3ad57\\final\\validation_report.md",
+    "references.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-is-the-impact-of-remote-work-on-employee-productivity_aeee52ef5e8147ea8a5cf33a88b3ad57\\final\\references.md",
+    "evidence_table.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-is-the-impact-of-remote-work-on-employee-productivity_aeee52ef5e8147ea8a5cf33a88b3ad57\\final\\evidence_table.md",
+    "decision_brief.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-is-the-impact-of-remote-work-on-employee-productivity_aeee52ef5e8147ea8a5cf33a88b3ad57\\final\\decision_brief.md",
+    "paper.tex": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-is-the-impact-of-remote-work-on-employee-productivity_aeee52ef5e8147ea8a5cf33a88b3ad57\\final\\paper.tex",
+    "paper.pdf": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-is-the-impact-of-remote-work-on-employee-productivity_aeee52ef5e8147ea8a5cf33a88b3ad57\\final\\paper.pdf"
+  },
+  "scores": {
+    "citation_integrity": 2.0,
+    "claim_source_alignment": 5.0,
+    "process_control": 5.0,
+    "literature_coverage": 5.0,
+    "overall": 4.25
+  },
+  "verification": {
+    "verified": 6,
+    "invalid": 0,
+    "unverifiable": 2
+  },
+  "draft_status": "complete",
+  "length_status": null,
+  "actual_words": 2709,
+  "target_words": null,
+  "decision_brief": {
+    "path": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-is-the-impact-of-remote-work-on-employee-productivity_aeee52ef5e8147ea8a5cf33a88b3ad57\\final\\decision_brief.md",
+    "next_action": "Check reference(s) 6, 8 by hand against their DOI before you submit: Verification could not confirm them.",
+    "markdown": "# Decision brief\n\nRun aeee52ef5e8147ea8a5cf33a88b3ad57 · completed · overall quality 4.2/5\n\n## Next action\n\nCheck reference(s) 6, 8 by hand against their DOI before you submit: Verification could not confirm them.\n\n## Strong\n\n- Overall quality 4.2/5\n- Claim-source alignment 5.0/5\n- Process control 5.0/5\n- Literature coverage 5.0/5\n- 6 of 8 reference(s) verified against Crossref/OpenAlex\n- Draft complete: 5 section(s) written\n\n## Weak\n\n- Citation integrity 2.0/5\n- 2 unverifiable reference(s)\n- 5 factual sentence(s) without a citation\n- api.semanticscholar.org ran out of budget during Discovery\n\n## References to check by hand\n\n- [6] unverifiable: No DOI found in this reference entry — existence could not be checked automatically.\n- [8] unverifiable: No DOI found in this reference entry — existence could not be checked automatically.\n\n## Sections to look at\n\n- None.\n"
+  }
+}
+
+--- stderr ---
+[discovery] Budget check: OpenAlex has 853 credit(s) left today; this run may use up to 71. Running the full plan.
+[discovery] Models � queries & mining: qwen3.5:9b; gap analysis: qwen3.5:9b
+[discovery] Generating search queries with the local model�
+[discovery] queries
+[discovery] Search queries ready � �"remote work" OR "telecommuting" OR "work from home" OR "WFH" AND ("employee productivity" OR "worker productivity" OR "job performance" OR "output")�
+[discovery] Searching Semantic Scholar (�remote work employee productivity impact�), OpenAlex (�remote work employee productivity impact�), PubMed (�remote work employee productivity impact�) � chosen by the model.
+[discovery] Searching 3 database(s)�
+[discovery] Semantic Scholar answered HTTP 429; waiting 1 s before retrying.
+[discovery] Semantic Scholar (api.semanticscholar.org) is unavailable: 2 rate-limit/server errors in a row (last HTTP 429). Semantic Scholar's shared keyless pool is busy; try again later. Discovery continues on the other sources.
+[discovery] Semantic Scholar search failed (ProviderExhausted) � continuing without it.
+[discovery] source_result
+[discovery] source_result
+[discovery] relevance_filter
+[discovery] Relevance screening rejected 5 of 71 unique paper(s) as off-topic.
+[discovery] Corpus approved (auto).
+[discovery] Found 80 papers \u2192 71 unique \u2192 66 passed relevance screening \u2192 analyzing top 8
+[discovery] corpus
+[discovery] Retrieving full texts (open access)�
+[discovery] Retrieving full texts� 3 of 5 tried (of 8 candidates)
+[discovery] Retrieving full texts� 6 of 8 tried (of 8 candidates)
+[discovery] Discussion/Future-research sections retrieved for 6 papers
+[discovery] fulltext_done
+[discovery] Extracting author-flagged future-research statements�
+[discovery] Found 1 author-flagged candidate(s)
+[discovery] candidates
+[discovery] Checking whether 1 candidate(s) have already been answered�
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification searches added 0 papers to check against
+[discovery] Synthesizing the corpus and identifying gaps (this takes a few minutes)�
+[discovery] The model is reading and reasoning over the corpus�
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] report
+[discovery] Analysis complete.
+[discovery] Selected 8 paper(s), found 4 research gap(s).
+[writing] Building outline and literature files from discovery results�
+[writing] Prepared outline and 8 literature file(s).
+[writing] Writing the evidence-grounded draft (this can take a while)�
+[writing] Draft complete.
+[writing] 5 section(s) written, 8 reference(s) cited.
+[verification] Verifying 8 reference(s) against Crossref/OpenAlex�
+[verification] Verification complete � 6 verified, 0 invalid, 2 unverifiable.
+[verification] 6 verified, 0 invalid, 2 unverifiable.
+[quality_assurance] Running independent citation and evidence audit�
+[quality_assurance] Audit complete � overall quality score 4.2/5.0.
+[quality_assurance] Overall quality score: 4.2/5.0.

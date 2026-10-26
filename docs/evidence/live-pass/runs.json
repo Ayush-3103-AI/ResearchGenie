@@ -1,0 +1,125 @@
+{
+  "ok": true,
+  "runs": [
+    {
+      "label": "fasting",
+      "question": "What are the effects of intermittent fasting on cognitive performance?",
+      "run_id": "cf0fce1893454ab494955e48a642b203",
+      "state": "completed",
+      "draft_status": "complete",
+      "words": 3357,
+      "target_words": null,
+      "scores": {
+        "citation_integrity": 2.0,
+        "claim_source_alignment": 5.0,
+        "process_control": 2.0,
+        "literature_coverage": 5.0,
+        "overall": 3.5
+      },
+      "verification": {
+        "verified": 7,
+        "invalid": 0,
+        "unverifiable": 0
+      },
+      "discovery_seconds": 239.5,
+      "memory_hit": {
+        "raw_type": "memory_hit",
+        "count": 5,
+        "reused_excerpts": 3,
+        "seeded_papers": 2
+      }
+    },
+    {
+      "label": "remote-work",
+      "question": "What is the impact of remote work on employee productivity?",
+      "run_id": "aeee52ef5e8147ea8a5cf33a88b3ad57",
+      "state": "completed",
+      "draft_status": "complete",
+      "words": 2709,
+      "target_words": null,
+      "scores": {
+        "citation_integrity": 2.0,
+        "claim_source_alignment": 5.0,
+        "process_control": 5.0,
+        "literature_coverage": 5.0,
+        "overall": 4.25
+      },
+      "verification": {
+        "verified": 6,
+        "invalid": 0,
+        "unverifiable": 2
+      },
+      "discovery_seconds": 141.6,
+      "memory_hit": {}
+    },
+    {
+      "label": "green-space",
+      "question": "How does urban green space access affect residents' mental health?",
+      "run_id": "f70b79d1aa6245bfb85ed96250dbaf0e",
+      "state": "completed",
+      "draft_status": "partial",
+      "words": 2238,
+      "target_words": null,
+      "scores": {
+        "citation_integrity": 2.0,
+        "claim_source_alignment": 5.0,
+        "process_control": 5.0,
+        "literature_coverage": 5.0,
+        "overall": 4.25
+      },
+      "verification": {
+        "verified": 6,
+        "invalid": 0,
+        "unverifiable": 0
+      },
+      "discovery_seconds": 242.1,
+      "memory_hit": {
+        "raw_type": "memory_hit",
+        "count": 10,
+        "reused_excerpts": 0,
+        "seeded_papers": 10
+      }
+    },
+    {
+      "label": "related",
+      "question": "How does intermittent fasting affect memory and attention in adults?",
+      "run_id": "3fdeeb72736b4daa99bbd8f656afb045",
+      "state": "completed",
+      "draft_status": "complete",
+      "words": 3648,
+      "target_words": null,
+      "scores": {
+        "citation_integrity": 2.0,
+        "claim_source_alignment": 5.0,
+        "process_control": 5.0,
+        "literature_coverage": 5.0,
+        "overall": 4.25
+      },
+      "verification": {
+        "verified": 7,
+        "invalid": 0,
+        "unverifiable": 0
+      },
+      "discovery_seconds": 259.8,
+      "memory_hit": {
+        "raw_type": "memory_hit",
+        "count": 10,
+        "reused_excerpts": 1,
+        "seeded_papers": 9
+      }
+    }
+  ],
+  "mean_words_fresh": 2768,
+  "baseline_words": 3691,
+  "library": {
+    "first_discovery_seconds": 239.5,
+    "related_discovery_seconds": 259.8,
+    "related_memory_hit": {
+      "raw_type": "memory_hit",
+      "count": 10,
+      "reused_excerpts": 1,
+      "seeded_papers": 9
+    }
+  },
+  "seconds": 4979
+}

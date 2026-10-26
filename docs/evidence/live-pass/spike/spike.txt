@@ -1,0 +1,39 @@
+OK  Mechanical       arxiv,s2
+VAL Civil            openalex,pubmed,s2
+OK  Electrical       arxiv,openalex,s2
+OK  Electronics      arxiv,openalex,s2
+OK  Cloud / DevOps   arxiv,openalex,s2
+OK  Computer Science arxiv,s2
+OK  Nutrition        openalex,pubmed,s2
+OK  Medicine         pubmed,s2
+OK  Genetics         openalex,pubmed,s2
+OK  Public health    openalex,pubmed,s2
+OK  Management       openalex,pubmed,s2
+OK  Physics          arxiv,openalex,s2
+
+Model qwen3.5:9b: 12/12 valid tool plans, 11/12 sensible (PubMed only where it belongs).
+
+--- stderr ---
+Traceback (most recent call last):
+  File "E:\Agentic AI\ResearchGenie-Full\scripts\spike_tool_calling.py", line 83, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "C:\Users\owais\AppData\Local\Programs\Python\Python314\Lib\asyncio\runners.py", line 204, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Users\owais\AppData\Local\Programs\Python\Python314\Lib\asyncio\runners.py", line 127, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\owais\AppData\Local\Programs\Python\Python314\Lib\asyncio\base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "E:\Agentic AI\ResearchGenie-Full\scripts\spike_tool_calling.py", line 79, in main
+    args.json.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\owais\AppData\Local\Programs\Python\Python314\Lib\pathlib\__init__.py", line 809, in write_text
+    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
+         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\owais\AppData\Local\Programs\Python\Python314\Lib\pathlib\__init__.py", line 771, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'E:\\Agentic AI\\ResearchGenie-Full\\docs\\evidence\\live-pass\\spike\\spike.json'

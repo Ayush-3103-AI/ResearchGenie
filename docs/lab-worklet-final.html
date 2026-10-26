@@ -59,13 +59,13 @@ ul{margin:4px 0;padding-left:20px}
 <td>Discovery runs a plan → act → observe → revise loop. The model writes the queries, four sources are searched, the results are screened for relevance, and the writing audit revises any section that fails (<code>discovery/pipeline.py</code>, <code>writing/graph.py</code>). It asks one clarifying question when a question is vague (#14), and searches again with new queries when too few papers are on topic (#15).</td>
 <td class="nov">The agent adapts only when the evidence says so. Both triggers (a vague question, a thin corpus) are deterministic checks, so its behaviour can be explained and tested.</td>
 <td><code>test_clarify.py</code>, <code>test_discovery_replan.py</code>; the live runs</td>
-<td><span class="chip ok">Built</span> <span class="chip part" data-live="runs">Live: pending</span></td></tr>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="runs">Live: shown</span></td></tr>
 
 <tr><td class="wk">2</td><td>Tool-Using Agent</td>
 <td>Four scholarly APIs used as tools, all through one gateway with per-host pacing, credit-aware retry and a circuit breaker (#3). With native tool calling, the model picks the databases and a query for each. Each call is validated, with a fallback by field (#16). A budget check estimates a run's OpenAlex credits before it starts, and batches DOI lookups at 100 per request (#7).</td>
 <td class="nov">The model chooses the tools, but code checks each choice against the field (no PubMed for mechanical engineering). The gateway knows each provider's credits, so the agent stops before a run would fail, not after.</td>
 <td><code>test_scholarly_gateway.py</code>, <code>test_discovery_source_plan.py</code>, the budget-check tests; <a href="evidence/live-pass/spike.json">spike.json</a></td>
-<td><span class="chip ok">Built</span> <span class="chip part" data-live="spike">Live: pending</span></td></tr>
+<td><span class="chip ok">Built</span> <span class="chip no" data-live="spike">Live: failed</span></td></tr>
 
 <tr><td class="wk">3</td><td>Skill Creation</td>
 <td>Each capability is a reusable unit: Pydantic contracts (<code>shared/contracts/</code>) and 13 prompt files. A headless JSON CLI (run / status / result / resume / doctor) has fixed command lines and exit codes (#10). One Agent Skills folder, <code>skills/researchgenie/</code>, uses only that CLI (#21).</td>
@@ -77,7 +77,7 @@ ul{margin:4px 0;padding-left:20px}
 <td>Short-term memory: the LangGraph state, with SQLite checkpoints. Long-term memory: a research library in SQLite FTS5 that stores every run and paper (#18), and a response cache (#6). Discovery now reads the library: it reuses stored Discussion excerpts by DOI and seeds matching past papers into the candidate pool (#19). <code>--no-memory</code> turns this off.</td>
 <td class="nov">Memory makes later runs faster but cannot get past the safety screen. Seeded past papers still go through the relevance gate, and a test shows an off-topic one is rejected.</td>
 <td><code>test_library.py</code>, <code>test_response_cache.py</code>, the library-read tests; the related-run timing in LIVE_PASS.md</td>
-<td><span class="chip ok">Built</span> <span class="chip part" data-live="runs">Live: pending</span></td></tr>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="runs">Live: shown</span></td></tr>
 
 <tr><td class="wk">5</td><td>MCP Connector</td>
 <td>One model connector (<code>llm_provider.py</code>: Ollama or Gemini). Verification uses the same scholarly gateway as Discovery (#4). <code>researchgenie-mcp</code> is a real read-only MCP server on the official SDK, with six tools: list runs, read an artifact, search the library, summarize a run, search the literature, verify a DOI (#20).</td>
@@ -95,31 +95,31 @@ ul{margin:4px 0;padding-left:20px}
 <td>Research Writing is a 9-node LangGraph with conditional edges and SQLite checkpoints. The Dev Agent is a second graph: plan → failing test → patch → test, at most 3 rounds (#25).</td>
 <td class="nov">Two cooperating graphs: one writes the paper, and the other changes the product's own code under test.</td>
 <td><code>writing/graph.py</code>, <code>test_dev_agent.py</code></td>
-<td><span class="chip ok">Built</span> <span class="chip part" data-live="runs">Live: pending</span></td></tr>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="runs">Live: shown</span></td></tr>
 
 <tr><td class="wk">8</td><td>Parallel Swarm</td>
 <td>A Send() fan-out with one literature-card worker per paper; parallel source search and full-text fetch; the Trend Advisor's gap-mining swarm, with a merge that needs several papers to agree.</td>
 <td class="nov">A gap counts only when several independent papers raise it (a recurrence threshold), so one paper's wish list does not become a "gap". A barrier test proves that the workers run in parallel.</td>
 <td><code>test_trend_gap_mining.py</code>; the advisor runs in LIVE_PASS.md</td>
-<td><span class="chip ok">Built</span> <span class="chip part" data-live="advisor">Live: pending</span></td></tr>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="advisor">Live: shown</span></td></tr>
 
 <tr><td class="wk">9</td><td>Deep Research Agent</td>
 <td>Multi-hop research: search, a relevance gate, full-text Discussion mining, future-work candidates checked against a fresh search, gap analysis, then a cited draft. Every run writes an evidence table (#11) and a decision brief (#12).</td>
 <td class="nov">Every claim traces to a row: paper → evidence point → section → DOI → verification status. The brief lists which references to check by hand and gives exactly one next action, without an LLM call.</td>
 <td>11 earlier runs in <code>docs/research-papers/</code>; the fresh runs in <code>docs/evidence/live-pass/runs/</code>; <code>test_evidence_table.py</code>, the decision-brief tests</td>
-<td><span class="chip ok">Built</span> <span class="chip part" data-live="runs">Live: pending</span></td></tr>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="runs">Live: shown</span></td></tr>
 
 <tr><td class="wk">10</td><td>Cloud Ops Agent</td>
 <td>CI on every push (#2). A container image with a local (Ollama) and a cloud (Gemini) profile (#23). The Doctor reads a failed run's log and the live system status, names the cause from a rule table, and applies the fix after confirmation: start Ollama, download the model, add a key, wait for the reset, or resume (#13). The budget check prevents credit failures (#7). Hosted demo: <a href="hosted-demo.md">hosted-demo.md</a> (#24).</td>
 <td class="nov">A self-healing ops agent with no guessing. The diagnosis quotes its evidence, a human confirms the fix, and the run resumes from the failed stage instead of starting again.</td>
 <td><code>.github/workflows/test.yml</code>, <code>Dockerfile</code>, <code>test_doctor.py</code> (one test per rule); the Doctor live test</td>
-<td><span class="chip ok">Built</span> <span class="chip part" data-live="doctor">Live: pending</span></td></tr>
+<td><span class="chip ok">Built</span> <span class="chip no" data-live="doctor">Live: failed</span></td></tr>
 
 <tr><td class="wk">11</td><td>Agentic SDLC Factory</td>
 <td>The Dev Agent turns a ticket into tested code. It plans, writes a failing test, then patches with search/replace edits until the test passes. The existing tests run as guards. It works in a throwaway git worktree and never commits; a human applies the diff (#25, #26). Its demo ticket is a real feature: APA 7 citations.</td>
 <td class="nov">The agent shipped a product feature. Red is required first; a "green" with no red is rejected as <code>not_red</code>. The audit trail records every round.</td>
 <td><code>test_dev_agent.py</code>; <a href="tickets/26-apa-7.md">26-apa-7.md</a> (Result line); <code>docs/evidence/live-pass/devagent/</code></td>
-<td><span class="chip ok">Built</span> <span class="chip part" data-live="devagent">Live: pending</span></td></tr>
+<td><span class="chip ok">Built</span> <span class="chip no" data-live="devagent">Live: failed</span></td></tr>
 
 <tr><td class="wk">12</td><td>Safety &amp; Governance</td>
 <td>Approval gates in the CLI and the web UI. Paper approval before writing (#17). Deterministic QA, and a DOI checker that never repairs a reference. Rollback: a run resumes from the failed stage, and the earlier output is kept as <code>final_v1/</code>, <code>final_v2/</code> (#9). The Doctor's confirmation rule. Keys are never logged. A governance document maps 6 risks to their control, test and rollback (#22).</td>
@@ -131,13 +131,13 @@ ul{margin:4px 0;padding-left:20px}
 <td>The Trend &amp; Gap Advisor ranks rising topics in 6 engineering fields from real OpenAlex counts. The search adapts to the field: engineering and cloud requests skip PubMed (#16). A confirmed pick goes into the full pipeline under one run id (D-040).</td>
 <td class="nov">The topic ranking comes from measured publication growth, not the model's opinion. The model is used only to read the stated future work of real papers.</td>
 <td>8 saved advisor runs in 6 fields; the advisor rows in LIVE_PASS.md</td>
-<td><span class="chip ok">Built</span> <span class="chip part" data-live="advisor">Live: pending</span></td></tr>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="advisor">Live: shown</span></td></tr>
 
 <tr><td class="wk">14</td><td>Capstone Studio</td>
 <td>One installable system with four entry points (<code>researchgenie</code>, <code>-advise</code>, <code>-dev</code>, <code>-mcp</code>), an HTTP API, a web workbench (resume, paper approval, Doctor, evidence and decision brief), the agent skill and a container. <a href="demo-runbook.md">demo-runbook.md</a> has the 12-minute demo.</td>
 <td class="nov">The whole agentic system runs on an 8 GB laptop GPU, with no cloud cost and no data leaving the machine. Gemini is one setting away.</td>
 <td>the full test count in LIVE_PASS.md; CI; README</td>
-<td><span class="chip ok">Built</span> <span class="chip part" data-live="tests">Live: pending</span></td></tr>
+<td><span class="chip ok">Built</span> <span class="chip no" data-live="tests">Live: failed</span></td></tr>
 </table></div>
 
 <h2>Since the 18 Oct sheet</h2>

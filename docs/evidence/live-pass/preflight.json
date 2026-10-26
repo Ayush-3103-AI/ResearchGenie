@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "provider": "ollama",
+  "model": "qwen3.5:9b",
+  "models": [
+    "qwen3.5:9b"
+  ],
+  "commit": "ad6ec33",
+  "note": "",
+  "seconds": 0
+}

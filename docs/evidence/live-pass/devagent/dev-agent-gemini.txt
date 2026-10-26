@@ -1,0 +1,70 @@
+
+--- stderr ---
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "E:\Agentic AI\ResearchGenie-Full\dev_agent\agent.py", line 453, in <module>
+    main()
+    ~~~~^^
+  File "E:\Agentic AI\ResearchGenie-Full\dev_agent\agent.py", line 444, in main
+    report = asyncio.run(run_dev_agent(ticket, repo=repo, test_timeout=float(timeout)))
+  File "C:\Users\owais\AppData\Local\Programs\Python\Python314\Lib\asyncio\runners.py", line 204, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Users\owais\AppData\Local\Programs\Python\Python314\Lib\asyncio\runners.py", line 127, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\owais\AppData\Local\Programs\Python\Python314\Lib\asyncio\base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "E:\Agentic AI\ResearchGenie-Full\dev_agent\agent.py", line 402, in run_dev_agent
+    state = await _build_graph(run).ainvoke(state)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Agentic AI\ResearchGenie-Full\.venv\Lib\site-packages\langgraph\pregel\main.py", line 4090, in ainvoke
+    async for chunk in self.astream(
+    ...<30 lines>...
+            chunks.append(chunk)
+  File "E:\Agentic AI\ResearchGenie-Full\.venv\Lib\site-packages\langgraph\pregel\main.py", line 3440, in astream
+    async for _ in runner.atick(
+    ...<16 lines>...
+            yield o
+  File "E:\Agentic AI\ResearchGenie-Full\.venv\Lib\site-packages\langgraph\pregel\_runner.py", line 396, in atick
+    await arun_with_retry(
+    ...<15 lines>...
+    )
+  File "E:\Agentic AI\ResearchGenie-Full\.venv\Lib\site-packages\langgraph\pregel\_retry.py", line 744, in arun_with_retry
+    return await task.proc.ainvoke(task.input, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Agentic AI\ResearchGenie-Full\.venv\Lib\site-packages\langgraph\_internal\_runnable.py", line 756, in ainvoke
+    input = await asyncio.create_task(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+        step.ainvoke(input, config, **kwargs), context=context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "E:\Agentic AI\ResearchGenie-Full\.venv\Lib\site-packages\langgraph\_internal\_runnable.py", line 522, in ainvoke
+    ret = await self.afunc(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Agentic AI\ResearchGenie-Full\dev_agent\agent.py", line 329, in patch
+    reply = await run.ask(
+            ^^^^^^^^^^^^^^
+    ...<10 lines>...
+        "Return search/replace edits.", EDITS_SCHEMA)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Agentic AI\ResearchGenie-Full\dev_agent\agent.py", line 154, in ask
+    comp = await self.complete(system=SYSTEM, user=user, schema=schema,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                               max_tokens=MAX_TOKENS, think=False)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Agentic AI\ResearchGenie-Full\shared\utilities\llm_provider.py", line 275, in complete_json
+    async for event in stream_json(system=system, user=user, schema=schema,
+    ...<3 lines>...
+            comp = event["completion"]
+  File "E:\Agentic AI\ResearchGenie-Full\shared\utilities\llm_provider.py", line 202, in stream_json
+    async for event in _stream_json_gemini(
+    ...<3 lines>...
+        yield event
+  File "E:\Agentic AI\ResearchGenie-Full\shared\utilities\llm_provider.py", line 166, in _stream_json_gemini
+    raise LLMProviderError(f"Gemini returned an error ({e.response.status_code}).") from None
+shared.utilities.llm_provider.LLMProviderError: Gemini returned an error (429).
+During task with name 'patch' and id '3955948a-7468-9897-c458-e87ec2683421'

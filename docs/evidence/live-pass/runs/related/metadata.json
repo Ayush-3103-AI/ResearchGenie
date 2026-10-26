@@ -1,0 +1,31 @@
+{
+  "run_id": "3fdeeb72736b4daa99bbd8f656afb045",
+  "research_question": "How does intermittent fasting affect memory and attention in adults?",
+  "timings": {
+    "discovery_seconds": 259.8,
+    "writing_seconds": 1003.0,
+    "verification_seconds": 2.4,
+    "quality_assurance_seconds": 0.0
+  },
+  "overall_quality_score": 4.25,
+  "draft_status": "complete",
+  "target_words": null,
+  "actual_words": 3648,
+  "length_status": null,
+  "evidence_limited_sections": [],
+  "broken_sections": [],
+  "duplicate_sections": [],
+  "credits_used": {
+    "PubMed (NCBI)": 0,
+    "OpenAlex": 80,
+    "Europe PMC": 0,
+    "Open-access host": 0,
+    "Crossref": 0
+  },
+  "memory": {
+    "enabled": true,
+    "count": 10,
+    "reused_excerpts": 1,
+    "seeded_papers": 9
+  }
+}

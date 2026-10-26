@@ -1,0 +1,104 @@
+{
+  "run_id": "3fdeeb72736b4daa99bbd8f656afb045",
+  "state": "completed",
+  "stage": "quality_assurance",
+  "run_directory": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-intermittent-fasting-affect-memory-and-attention-in_3fdeeb72736b4daa99bbd8f656afb045",
+  "last_event": {
+    "type": "progress",
+    "stage": "quality_assurance",
+    "status": "done",
+    "message": "Overall quality score: 4.2/5.0.",
+    "timestamp": "2026-10-26T17:20:10.027464+00:00"
+  },
+  "final_files": {
+    "draft.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-intermittent-fasting-affect-memory-and-attention-in_3fdeeb72736b4daa99bbd8f656afb045\\final\\draft.md",
+    "quality_report.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-intermittent-fasting-affect-memory-and-attention-in_3fdeeb72736b4daa99bbd8f656afb045\\final\\quality_report.md",
+    "validation_report.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-intermittent-fasting-affect-memory-and-attention-in_3fdeeb72736b4daa99bbd8f656afb045\\final\\validation_report.md",
+    "references.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-intermittent-fasting-affect-memory-and-attention-in_3fdeeb72736b4daa99bbd8f656afb045\\final\\references.md",
+    "evidence_table.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-intermittent-fasting-affect-memory-and-attention-in_3fdeeb72736b4daa99bbd8f656afb045\\final\\evidence_table.md",
+    "decision_brief.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-intermittent-fasting-affect-memory-and-attention-in_3fdeeb72736b4daa99bbd8f656afb045\\final\\decision_brief.md",
+    "paper.tex": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-intermittent-fasting-affect-memory-and-attention-in_3fdeeb72736b4daa99bbd8f656afb045\\final\\paper.tex",
+    "paper.pdf": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-intermittent-fasting-affect-memory-and-attention-in_3fdeeb72736b4daa99bbd8f656afb045\\final\\paper.pdf"
+  },
+  "scores": {
+    "citation_integrity": 2.0,
+    "claim_source_alignment": 5.0,
+    "process_control": 5.0,
+    "literature_coverage": 5.0,
+    "overall": 4.25
+  },
+  "verification": {
+    "verified": 7,
+    "invalid": 0,
+    "unverifiable": 0
+  },
+  "draft_status": "complete",
+  "length_status": null,
+  "actual_words": 3648,
+  "target_words": null,
+  "decision_brief": {
+    "path": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-intermittent-fasting-affect-memory-and-attention-in_3fdeeb72736b4daa99bbd8f656afb045\\final\\decision_brief.md",
+    "next_action": "Read the draft through and check each claim against its source in final/evidence_table.md; nothing else needs your judgement.",
+    "markdown": "# Decision brief\n\nRun 3fdeeb72736b4daa99bbd8f656afb045 · completed · overall quality 4.2/5\n\n## Next action\n\nRead the draft through and check each claim against its source in final/evidence_table.md; nothing else needs your judgement.\n\n## Strong\n\n- Overall quality 4.2/5\n- Claim-source alignment 5.0/5\n- Process control 5.0/5\n- Literature coverage 5.0/5\n- 7 of 7 reference(s) verified against Crossref/OpenAlex\n- Draft complete: 5 section(s) written\n- 1 scholarly request(s) answered from the local cache\n- 10 paper excerpt(s) reused from the research library\n\n## Weak\n\n- Citation integrity 2.0/5\n- 7 factual sentence(s) without a citation\n- api.semanticscholar.org ran out of budget during Discovery\n\n## References to check by hand\n\n- None: every reference was verified.\n\n## Sections to look at\n\n- None.\n"
+  }
+}
+
+--- stderr ---
+[discovery] You researched a similar question on 26 Oct 2026 ("Effects of caffeine on short-term memory in adults") � QA 3.5 \u2192 E:\Agentic AI\ResearchGenie-Full\outputs\effects-of-caffeine-on-short-term-memory-in-adults_b6395271c3024693b92350670b5b2c1c (and 2 more)
+[discovery] Budget check: OpenAlex has 833 credit(s) left today; this run may use up to 71. Running the full plan.
+[discovery] Models � queries & mining: qwen3.5:9b; gap analysis: qwen3.5:9b
+[discovery] Generating search queries with the local model�
+[discovery] queries
+[discovery] Search queries ready � �intermittent fasting OR time-restricted eating OR alternate day fasting OR 5:2 diet AND (memory OR cognition OR recall OR learning) AND (attention OR concentration OR executive function) AND adult*�
+[discovery] Searching Semantic Scholar (�intermittent fasting memory attention adults�), OpenAlex (�intermittent fasting memory attention adults�), PubMed (�intermittent fasting memory attention adults�) � chosen by the model.
+[discovery] Searching 3 database(s)�
+[discovery] Semantic Scholar answered HTTP 429; waiting 2 s before retrying.
+[discovery] Semantic Scholar (api.semanticscholar.org) is unavailable: 2 rate-limit/server errors in a row (last HTTP 429). Semantic Scholar's shared keyless pool is busy; try again later. Discovery continues on the other sources.
+[discovery] Semantic Scholar search failed (ProviderExhausted) � continuing without it.
+[discovery] source_result
+[discovery] source_result
+[discovery] Corpus approved (auto).
+[discovery] Found 48 papers \u2192 53 unique \u2192 53 passed relevance screening \u2192 analyzing top 8
+[discovery] corpus
+[discovery] Research library: reused 1 stored excerpt(s); 9 past paper(s) passed the relevance gate.
+[discovery] Retrieving full texts (open access)�
+[discovery] Retrieving full texts� 3 of 5 tried (of 7 candidates)
+[discovery] Retrieving full texts� 5 of 7 tried (of 7 candidates)
+[discovery] Discussion/Future-research sections retrieved for 6 papers
+[discovery] fulltext_done
+[discovery] Extracting author-flagged future-research statements�
+[discovery] Found 5 author-flagged candidate(s)
+[discovery] candidates
+[discovery] Checking whether 5 candidate(s) have already been answered�
+[discovery] OpenAlex answered HTTP 504; waiting 1 s before retrying.
+[discovery] OpenAlex answered HTTP 500; waiting 1 s before retrying.
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification searches added 0 papers to check against
+[discovery] 1 scholarly request(s) answered from the local cache (no network call, no quota).
+[discovery] Synthesizing the corpus and identifying gaps (this takes a few minutes)�
+[discovery] The model is reading and reasoning over the corpus�
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] report
+[discovery] Analysis complete.
+[discovery] Selected 8 paper(s), found 5 research gap(s).
+[writing] Building outline and literature files from discovery results�
+[writing] Prepared outline and 8 literature file(s).
+[writing] Writing the evidence-grounded draft (this can take a while)�
+[writing] Insufficient evidence for tag TAG-3.
+[writing] Draft complete.
+[writing] 5 section(s) written, 7 reference(s) cited.
+[verification] Verifying 7 reference(s) against Crossref/OpenAlex�
+[verification] Verification complete � 7 verified, 0 invalid, 0 unverifiable.
+[verification] 7 verified, 0 invalid, 0 unverifiable.
+[quality_assurance] Running independent citation and evidence audit�
+[quality_assurance] Audit complete � overall quality score 4.2/5.0.
+[quality_assurance] Overall quality score: 4.2/5.0.

@@ -1,0 +1,100 @@
+{
+  "run_id": "f70b79d1aa6245bfb85ed96250dbaf0e",
+  "state": "completed",
+  "stage": "quality_assurance",
+  "run_directory": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-urban-green-space-access-affect-residents-mental-he_f70b79d1aa6245bfb85ed96250dbaf0e",
+  "last_event": {
+    "type": "progress",
+    "stage": "quality_assurance",
+    "status": "done",
+    "message": "Overall quality score: 4.2/5.0.",
+    "timestamp": "2026-10-26T16:59:02.390493+00:00"
+  },
+  "final_files": {
+    "draft.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-urban-green-space-access-affect-residents-mental-he_f70b79d1aa6245bfb85ed96250dbaf0e\\final\\draft.md",
+    "quality_report.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-urban-green-space-access-affect-residents-mental-he_f70b79d1aa6245bfb85ed96250dbaf0e\\final\\quality_report.md",
+    "validation_report.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-urban-green-space-access-affect-residents-mental-he_f70b79d1aa6245bfb85ed96250dbaf0e\\final\\validation_report.md",
+    "references.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-urban-green-space-access-affect-residents-mental-he_f70b79d1aa6245bfb85ed96250dbaf0e\\final\\references.md",
+    "evidence_table.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-urban-green-space-access-affect-residents-mental-he_f70b79d1aa6245bfb85ed96250dbaf0e\\final\\evidence_table.md",
+    "decision_brief.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-urban-green-space-access-affect-residents-mental-he_f70b79d1aa6245bfb85ed96250dbaf0e\\final\\decision_brief.md",
+    "paper.tex": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-urban-green-space-access-affect-residents-mental-he_f70b79d1aa6245bfb85ed96250dbaf0e\\final\\paper.tex",
+    "paper.pdf": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-urban-green-space-access-affect-residents-mental-he_f70b79d1aa6245bfb85ed96250dbaf0e\\final\\paper.pdf"
+  },
+  "scores": {
+    "citation_integrity": 2.0,
+    "claim_source_alignment": 5.0,
+    "process_control": 5.0,
+    "literature_coverage": 5.0,
+    "overall": 4.25
+  },
+  "verification": {
+    "verified": 6,
+    "invalid": 0,
+    "unverifiable": 0
+  },
+  "draft_status": "partial",
+  "length_status": null,
+  "actual_words": 2238,
+  "target_words": null,
+  "decision_brief": {
+    "path": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\how-does-urban-green-space-access-affect-residents-mental-he_f70b79d1aa6245bfb85ed96250dbaf0e\\final\\decision_brief.md",
+    "next_action": "Resume from Writing (`researchgenie resume f70b79d1aa6245bfb85ed96250dbaf0e --from writing`): 1 section(s) are broken: Conclusion.",
+    "markdown": "# Decision brief\n\nRun f70b79d1aa6245bfb85ed96250dbaf0e · completed · overall quality 4.2/5\n\n## Next action\n\nResume from Writing (`researchgenie resume f70b79d1aa6245bfb85ed96250dbaf0e --from writing`): 1 section(s) are broken: Conclusion.\n\n## Strong\n\n- Overall quality 4.2/5\n- Claim-source alignment 5.0/5\n- Process control 5.0/5\n- Literature coverage 5.0/5\n- 6 of 6 reference(s) verified against Crossref/OpenAlex\n- 10 paper excerpt(s) reused from the research library\n\n## Weak\n\n- Citation integrity 2.0/5\n- Draft status: partial\n- 5 factual sentence(s) without a citation\n- api.semanticscholar.org ran out of budget during Discovery\n\n## References to check by hand\n\n- None: every reference was verified.\n\n## Sections to look at\n\n- Conclusion: broken\n"
+  }
+}
+
+--- stderr ---
+[discovery] Budget check: OpenAlex has 843 credit(s) left today; this run may use up to 71. Running the full plan.
+[discovery] Models � queries & mining: qwen3.5:9b; gap analysis: qwen3.5:9b
+[discovery] Generating search queries with the local model�
+[discovery] queries
+[discovery] Search queries ready � �"urban green space" OR "green space" OR "parks" OR "vegetation" AND ("mental health" OR "psychological well-being" OR "depression" OR "anxiety" OR "stress" OR "cognitive function") AND ("access" OR "proximity" OR "availability" OR "use")�
+[discovery] Searching Semantic Scholar (�urban green space access mental health residents�), OpenAlex (�urban green space access mental health residents�), PubMed (�urban green space access mental health residents�) � chosen by the model.
+[discovery] Searching 3 database(s)�
+[discovery] Semantic Scholar answered HTTP 429; waiting 2 s before retrying.
+[discovery] Semantic Scholar (api.semanticscholar.org) is unavailable: 2 rate-limit/server errors in a row (last HTTP 429). Semantic Scholar's shared keyless pool is busy; try again later. Discovery continues on the other sources.
+[discovery] Semantic Scholar search failed (ProviderExhausted) � continuing without it.
+[discovery] source_result
+[discovery] source_result
+[discovery] Corpus approved (auto).
+[discovery] Found 80 papers \u2192 84 unique \u2192 84 passed relevance screening \u2192 analyzing top 8
+[discovery] corpus
+[discovery] Research library: reused 0 stored excerpt(s); 10 past paper(s) passed the relevance gate.
+[discovery] Retrieving full texts (open access)�
+[discovery] Retrieving full texts� 1 of 5 tried (of 8 candidates)
+[discovery] Retrieving full texts� 4 of 8 tried (of 8 candidates)
+[discovery] Discussion/Future-research sections retrieved for 4 papers
+[discovery] fulltext_done
+[discovery] Extracting author-flagged future-research statements�
+[discovery] Found 5 author-flagged candidate(s)
+[discovery] candidates
+[discovery] Checking whether 5 candidate(s) have already been answered�
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification searches added 0 papers to check against
+[discovery] Synthesizing the corpus and identifying gaps (this takes a few minutes)�
+[discovery] The model is reading and reasoning over the corpus�
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] report
+[discovery] Analysis complete.
+[discovery] Selected 8 paper(s), found 5 research gap(s).
+[writing] Building outline and literature files from discovery results�
+[writing] Prepared outline and 8 literature file(s).
+[writing] Writing the evidence-grounded draft (this can take a while)�
+[writing] Conclusion output violated its evidence context and was replaced.
+[writing] Draft complete.
+[writing] 5 section(s) written, 6 reference(s) cited.
+[verification] Verifying 6 reference(s) against Crossref/OpenAlex�
+[verification] Verification complete � 6 verified, 0 invalid, 0 unverifiable.
+[verification] 6 verified, 0 invalid, 0 unverifiable.
+[quality_assurance] Running independent citation and evidence audit�
+[quality_assurance] Audit complete � overall quality score 4.2/5.0.
+[quality_assurance] Overall quality score: 4.2/5.0.

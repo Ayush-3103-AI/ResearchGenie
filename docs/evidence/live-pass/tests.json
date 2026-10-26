@@ -1,0 +1,5 @@
+{
+  "ok": false,
+  "note": "TimeoutExpired: Command '['E:\\\\Agentic AI\\\\ResearchGenie-Full\\\\.venv\\\\Scripts\\\\python.exe', '-m', 'pytest', '-q', '-p', 'no:cacheprovider']' timed out after 3600 seconds",
+  "seconds": 3600
+}

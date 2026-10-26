@@ -1,0 +1,6 @@
+- [1] C. Kai-li, T. Zhang, and F. Liu, "How Does Urban Green Space Impact Residents’ Mental Health: A Literature Review of Mediators," *International Journal of Environmental Research and Public Health*, 2021, doi: 10.3390/ijerph182211746.
+- [2] I. Alcock, M. P. White, and B. W. Wheeler, "Longitudinal Effects on Mental Health of Moving to Greener and Less Green Urban Areas," *Environmental Science & Technology*, 2013, doi: 10.1021/es403688w.
+- [3] C. Chen, W. Luo, and H. Li, "Impact of Perception of Green Space for Health Promotion on Willingness to Use Parks and Actual Use among Young Urban Residents," *International Journal of Environmental Research and Public Health*, 2020, doi: 10.3390/ijerph17155560.
+- [4] M. C. Kondo, J. Fluehr, and T. P. McKeon, "Urban Green Space and Its Impact on Human Health," *International Journal of Environmental Research and Public Health*, 2018, doi: 10.3390/ijerph15030445.
+- [5] B. A. Edeigba, U. K. Ashinze, and A. A. Umoh, "Urban green spaces and their impact on environmental health: A Global Review," *World Journal of Advanced Research and Reviews*, 2024, doi: 10.30574/wjarr.2024.21.2.0518.
+- [6] A. C. Lee and R. Maheswaran, "The health benefits of urban green spaces: a review of the evidence," *Journal of Public Health*, 2010, doi: 10.1093/pubmed/fdq068.

@@ -1,0 +1,31 @@
+{
+  "run_id": "aeee52ef5e8147ea8a5cf33a88b3ad57",
+  "research_question": "What is the impact of remote work on employee productivity?",
+  "timings": {
+    "discovery_seconds": 141.6,
+    "writing_seconds": 851.6,
+    "verification_seconds": 1.8,
+    "quality_assurance_seconds": 0.0
+  },
+  "overall_quality_score": 4.25,
+  "draft_status": "complete",
+  "target_words": null,
+  "actual_words": 2709,
+  "length_status": null,
+  "evidence_limited_sections": [],
+  "broken_sections": [],
+  "duplicate_sections": [],
+  "credits_used": {
+    "PubMed (NCBI)": 0,
+    "OpenAlex": 20,
+    "Europe PMC": 0,
+    "Open-access host": 0,
+    "Crossref": 0
+  },
+  "memory": {
+    "enabled": true,
+    "count": 0,
+    "reused_excerpts": 0,
+    "seeded_papers": 0
+  }
+}

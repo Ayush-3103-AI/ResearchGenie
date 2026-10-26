@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "domains": [
+    {
+      "domain": "CS_AI_ML",
+      "ok": true,
+      "gap_flags": 12,
+      "topics": 8,
+      "handed_off": true,
+      "folder": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\cs-ai-ml_f31ad25d5efd405b9e48ff45dbda82d1"
+    },
+    {
+      "domain": "ECE",
+      "ok": true,
+      "gap_flags": 12,
+      "topics": 8,
+      "handed_off": false,
+      "folder": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\ece_419fe0f74abe49dda85ed29da12f2c01"
+    },
+    {
+      "domain": "MECHANICAL",
+      "ok": true,
+      "gap_flags": 10,
+      "topics": 8,
+      "handed_off": false,
+      "folder": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\mechanical_dae6cb8a8a7f493c83a7209532f9f5e3"
+    }
+  ],
+  "seconds": 1482
+}

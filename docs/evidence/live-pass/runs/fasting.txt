@@ -1,0 +1,100 @@
+{
+  "run_id": "cf0fce1893454ab494955e48a642b203",
+  "state": "completed",
+  "stage": "quality_assurance",
+  "run_directory": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-are-the-effects-of-intermittent-fasting-on-cognitive-pe_cf0fce1893454ab494955e48a642b203",
+  "last_event": {
+    "type": "progress",
+    "stage": "quality_assurance",
+    "status": "done",
+    "message": "Overall quality score: 3.5/5.0.",
+    "timestamp": "2026-10-26T16:27:05.232352+00:00"
+  },
+  "final_files": {
+    "draft.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-are-the-effects-of-intermittent-fasting-on-cognitive-pe_cf0fce1893454ab494955e48a642b203\\final\\draft.md",
+    "quality_report.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-are-the-effects-of-intermittent-fasting-on-cognitive-pe_cf0fce1893454ab494955e48a642b203\\final\\quality_report.md",
+    "validation_report.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-are-the-effects-of-intermittent-fasting-on-cognitive-pe_cf0fce1893454ab494955e48a642b203\\final\\validation_report.md",
+    "references.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-are-the-effects-of-intermittent-fasting-on-cognitive-pe_cf0fce1893454ab494955e48a642b203\\final\\references.md",
+    "evidence_table.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-are-the-effects-of-intermittent-fasting-on-cognitive-pe_cf0fce1893454ab494955e48a642b203\\final\\evidence_table.md",
+    "decision_brief.md": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-are-the-effects-of-intermittent-fasting-on-cognitive-pe_cf0fce1893454ab494955e48a642b203\\final\\decision_brief.md",
+    "paper.tex": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-are-the-effects-of-intermittent-fasting-on-cognitive-pe_cf0fce1893454ab494955e48a642b203\\final\\paper.tex",
+    "paper.pdf": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-are-the-effects-of-intermittent-fasting-on-cognitive-pe_cf0fce1893454ab494955e48a642b203\\final\\paper.pdf"
+  },
+  "scores": {
+    "citation_integrity": 2.0,
+    "claim_source_alignment": 5.0,
+    "process_control": 2.0,
+    "literature_coverage": 5.0,
+    "overall": 3.5
+  },
+  "verification": {
+    "verified": 7,
+    "invalid": 0,
+    "unverifiable": 0
+  },
+  "draft_status": "complete",
+  "length_status": null,
+  "actual_words": 3357,
+  "target_words": null,
+  "decision_brief": {
+    "path": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\what-are-the-effects-of-intermittent-fasting-on-cognitive-pe_cf0fce1893454ab494955e48a642b203\\final\\decision_brief.md",
+    "next_action": "Read the draft through and check each claim against its source in final/evidence_table.md; nothing else needs your judgement.",
+    "markdown": "# Decision brief\n\nRun cf0fce1893454ab494955e48a642b203 · completed · overall quality 3.5/5\n\n## Next action\n\nRead the draft through and check each claim against its source in final/evidence_table.md; nothing else needs your judgement.\n\n## Strong\n\n- Overall quality 3.5/5\n- Claim-source alignment 5.0/5\n- Literature coverage 5.0/5\n- 7 of 7 reference(s) verified against Crossref/OpenAlex\n- Draft complete: 5 section(s) written\n- 2 scholarly request(s) answered from the local cache\n- 5 paper excerpt(s) reused from the research library\n\n## Weak\n\n- Citation integrity 2.0/5\n- Process control 2.0/5\n- 4 factual sentence(s) without a citation\n- api.semanticscholar.org ran out of budget during Discovery\n\n## References to check by hand\n\n- None: every reference was verified.\n\n## Sections to look at\n\n- None.\n"
+  }
+}
+
+--- stderr ---
+[discovery] You researched a similar question on 19 Oct 2026 ("Effects of intermittent fasting on cognitive performance") � QA 4.2 \u2192 E:\Agentic AI\ResearchGenie-Full\outputs\effects-of-intermittent-fasting-on-cognitive-performance_9f69c2f73a1c475faf33b3fd7dba5750
+[discovery] Budget check: OpenAlex has 863 credit(s) left today; this run may use up to 71. Running the full plan.
+[discovery] Models � queries & mining: qwen3.5:9b; gap analysis: qwen3.5:9b
+[discovery] Generating search queries with the local model�
+[discovery] queries
+[discovery] Search queries ready � �intermittent fasting AND cognitive performance OR memory OR attention OR executive function OR neurocognitive�
+[discovery] Searching Semantic Scholar (�intermittent fasting cognitive performance�), OpenAlex (�intermittent fasting cognitive performance�), PubMed (�intermittent fasting cognitive performance�) � chosen by the model.
+[discovery] Searching 3 database(s)�
+[discovery] Semantic Scholar answered HTTP 429; waiting 2 s before retrying.
+[discovery] Semantic Scholar (api.semanticscholar.org) is unavailable: 2 rate-limit/server errors in a row (last HTTP 429). Semantic Scholar's shared keyless pool is busy; try again later. Discovery continues on the other sources.
+[discovery] Semantic Scholar search failed (ProviderExhausted) � continuing without it.
+[discovery] source_result
+[discovery] source_result
+[discovery] Corpus approved (auto).
+[discovery] Found 80 papers \u2192 72 unique \u2192 72 passed relevance screening \u2192 analyzing top 8
+[discovery] corpus
+[discovery] Research library: reused 3 stored excerpt(s); 2 past paper(s) passed the relevance gate.
+[discovery] Retrieving full texts (open access)�
+[discovery] Retrieving full texts� 2 of 5 tried (of 5 candidates)
+[discovery] Discussion/Future-research sections retrieved for 5 papers
+[discovery] fulltext_done
+[discovery] Extracting author-flagged future-research statements�
+[discovery] Found 5 author-flagged candidate(s)
+[discovery] candidates
+[discovery] Checking whether 5 candidate(s) have already been answered�
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification search failed for one candidate (HTTPStatusError) � it will be judged on the main corpus only.
+[discovery] Verification searches added 0 papers to check against
+[discovery] 2 scholarly request(s) answered from the local cache (no network call, no quota).
+[discovery] Synthesizing the corpus and identifying gaps (this takes a few minutes)�
+[discovery] The model is reading and reasoning over the corpus�
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] analysis_progress
+[discovery] report
+[discovery] Analysis complete.
+[discovery] Selected 8 paper(s), found 4 research gap(s).
+[writing] Building outline and literature files from discovery results�
+[writing] Prepared outline and 8 literature file(s).
+[writing] Writing the evidence-grounded draft (this can take a while)�
+[writing] Draft complete.
+[writing] 5 section(s) written, 7 reference(s) cited.
+[verification] Verifying 7 reference(s) against Crossref/OpenAlex�
+[verification] Verification complete � 7 verified, 0 invalid, 0 unverifiable.
+[verification] 7 verified, 0 invalid, 0 unverifiable.
+[quality_assurance] Running independent citation and evidence audit�
+[quality_assurance] Audit complete � overall quality score 3.5/5.0.
+[quality_assurance] Overall quality score: 3.5/5.0.
