@@ -76,6 +76,7 @@ async def main() -> None:
     print(f"\nModel {args.model}: {valid}/{len(rows)} valid tool plans, "
           f"{sensible}/{len(rows)} sensible (PubMed only where it belongs).")
     if args.json:
+        args.json.parent.mkdir(parents=True, exist_ok=True)
         args.json.write_text(json.dumps(rows, indent=2), encoding="utf-8")
 
 

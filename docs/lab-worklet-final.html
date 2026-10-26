@@ -65,7 +65,7 @@ ul{margin:4px 0;padding-left:20px}
 <td>Four scholarly APIs used as tools, all through one gateway with per-host pacing, credit-aware retry and a circuit breaker (#3). With native tool calling, the model picks the databases and a query for each. Each call is validated, with a fallback by field (#16). A budget check estimates a run's OpenAlex credits before it starts, and batches DOI lookups at 100 per request (#7).</td>
 <td class="nov">The model chooses the tools, but code checks each choice against the field (no PubMed for mechanical engineering). The gateway knows each provider's credits, so the agent stops before a run would fail, not after.</td>
 <td><code>test_scholarly_gateway.py</code>, <code>test_discovery_source_plan.py</code>, the budget-check tests; <a href="evidence/live-pass/spike.json">spike.json</a></td>
-<td><span class="chip ok">Built</span> <span class="chip no" data-live="spike">Live: failed</span></td></tr>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="spike">Live: shown</span></td></tr>
 
 <tr><td class="wk">3</td><td>Skill Creation</td>
 <td>Each capability is a reusable unit: Pydantic contracts (<code>shared/contracts/</code>) and 13 prompt files. A headless JSON CLI (run / status / result / resume / doctor) has fixed command lines and exit codes (#10). One Agent Skills folder, <code>skills/researchgenie/</code>, uses only that CLI (#21).</td>

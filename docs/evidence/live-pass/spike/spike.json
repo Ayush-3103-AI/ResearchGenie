@@ -1,0 +1,370 @@
+[
+  {
+    "question": "Fatigue life of welded steel joints under variable amplitude loading",
+    "field": "Mechanical",
+    "calls": [
+      {
+        "name": "search_s2",
+        "arguments": {
+          "query": "fatigue life welded steel joints variable amplitude loading"
+        }
+      },
+      {
+        "name": "search_openalex",
+        "arguments": {
+          "query": "fatigue life welded steel joints variable amplitude loading"
+        }
+      },
+      {
+        "name": "search_arxiv",
+        "arguments": {
+          "query": "fatigue life welded steel joints variable amplitude loading"
+        }
+      }
+    ],
+    "error": null,
+    "valid": true,
+    "sensible": true,
+    "sources": [
+      "arxiv",
+      "openalex",
+      "s2"
+    ],
+    "seconds": 15.5
+  },
+  {
+    "question": "Self-healing concrete using bacterial additives for crack repair",
+    "field": "Civil",
+    "calls": [
+      {
+        "name": "search_s2",
+        "arguments": {
+          "query": "self-healing concrete bacterial additives crack repair"
+        }
+      },
+      {
+        "name": "search_openalex",
+        "arguments": {
+          "query": "self-healing concrete bacterial additives crack repair"
+        }
+      },
+      {
+        "name": "search_pubmed",
+        "arguments": {
+          "query": "self-healing concrete bacterial additives crack repair"
+        }
+      }
+    ],
+    "error": null,
+    "valid": true,
+    "sensible": false,
+    "sources": [
+      "openalex",
+      "pubmed",
+      "s2"
+    ],
+    "seconds": 3.0
+  },
+  {
+    "question": "Grid-forming inverter control for weak power grids",
+    "field": "Electrical",
+    "calls": [
+      {
+        "name": "search_s2",
+        "arguments": {
+          "query": "grid-forming inverter control weak power grid"
+        }
+      },
+      {
+        "name": "search_openalex",
+        "arguments": {
+          "query": "grid-forming inverter control weak power grid"
+        }
+      },
+      {
+        "name": "search_arxiv",
+        "arguments": {
+          "query": "grid-forming inverter control weak power grid"
+        }
+      }
+    ],
+    "error": null,
+    "valid": true,
+    "sensible": true,
+    "sources": [
+      "arxiv",
+      "openalex",
+      "s2"
+    ],
+    "seconds": 3.0
+  },
+  {
+    "question": "Low-power wake-up receivers for IoT sensor nodes",
+    "field": "Electronics",
+    "calls": [
+      {
+        "name": "search_s2",
+        "arguments": {
+          "query": "low-power wake-up receiver IoT sensor node"
+        }
+      },
+      {
+        "name": "search_openalex",
+        "arguments": {
+          "query": "low-power wake-up receiver IoT sensor node"
+        }
+      },
+      {
+        "name": "search_arxiv",
+        "arguments": {
+          "query": "low-power wake-up receiver IoT sensor node"
+        }
+      }
+    ],
+    "error": null,
+    "valid": true,
+    "sensible": true,
+    "sources": [
+      "arxiv",
+      "openalex",
+      "s2"
+    ],
+    "seconds": 3.0
+  },
+  {
+    "question": "Kubernetes autoscaling policies for latency-sensitive microservices",
+    "field": "Cloud / DevOps",
+    "calls": [
+      {
+        "name": "search_s2",
+        "arguments": {
+          "query": "Kubernetes autoscaling policies latency sensitive microservices"
+        }
+      },
+      {
+        "name": "search_openalex",
+        "arguments": {
+          "query": "Kubernetes autoscaling policies latency sensitive microservices"
+        }
+      },
+      {
+        "name": "search_arxiv",
+        "arguments": {
+          "query": "Kubernetes autoscaling policies latency sensitive microservices"
+        }
+      }
+    ],
+    "error": null,
+    "valid": true,
+    "sensible": true,
+    "sources": [
+      "arxiv",
+      "openalex",
+      "s2"
+    ],
+    "seconds": 3.2
+  },
+  {
+    "question": "Retrieval-augmented generation for reducing LLM hallucination",
+    "field": "Computer Science",
+    "calls": [
+      {
+        "name": "search_s2",
+        "arguments": {
+          "query": "retrieval augmented generation reduce LLM hallucination"
+        }
+      },
+      {
+        "name": "search_arxiv",
+        "arguments": {
+          "query": "retrieval augmented generation reduce LLM hallucination"
+        }
+      }
+    ],
+    "error": null,
+    "valid": true,
+    "sensible": true,
+    "sources": [
+      "arxiv",
+      "s2"
+    ],
+    "seconds": 2.3
+  },
+  {
+    "question": "Effects of intermittent fasting on cognitive performance in adults",
+    "field": "Nutrition",
+    "calls": [
+      {
+        "name": "search_s2",
+        "arguments": {
+          "query": "intermittent fasting cognitive performance adults"
+        }
+      },
+      {
+        "name": "search_openalex",
+        "arguments": {
+          "query": "intermittent fasting cognitive performance adults"
+        }
+      },
+      {
+        "name": "search_pubmed",
+        "arguments": {
+          "query": "intermittent fasting cognitive performance adults"
+        }
+      }
+    ],
+    "error": null,
+    "valid": true,
+    "sensible": true,
+    "sources": [
+      "openalex",
+      "pubmed",
+      "s2"
+    ],
+    "seconds": 2.9
+  },
+  {
+    "question": "Gut microbiome changes after antibiotic treatment in infants",
+    "field": "Medicine",
+    "calls": [
+      {
+        "name": "search_pubmed",
+        "arguments": {
+          "query": "gut microbiome changes antibiotic treatment infants"
+        }
+      },
+      {
+        "name": "search_s2",
+        "arguments": {
+          "query": "gut microbiome changes after antibiotic treatment in infants"
+        }
+      }
+    ],
+    "error": null,
+    "valid": true,
+    "sensible": true,
+    "sources": [
+      "pubmed",
+      "s2"
+    ],
+    "seconds": 2.2
+  },
+  {
+    "question": "CRISPR base editing efficiency in human hematopoietic stem cells",
+    "field": "Genetics",
+    "calls": [
+      {
+        "name": "search_s2",
+        "arguments": {
+          "query": "CRISPR base editing efficiency human hematopoietic stem cells"
+        }
+      },
+      {
+        "name": "search_openalex",
+        "arguments": {
+          "query": "CRISPR base editing efficiency human hematopoietic stem cells"
+        }
+      },
+      {
+        "name": "search_pubmed",
+        "arguments": {
+          "query": "CRISPR base editing efficiency human hematopoietic stem cells"
+        }
+      }
+    ],
+    "error": null,
+    "valid": true,
+    "sensible": true,
+    "sources": [
+      "openalex",
+      "pubmed",
+      "s2"
+    ],
+    "seconds": 3.4
+  },
+  {
+    "question": "Urban green space access and residents' mental health",
+    "field": "Public health",
+    "calls": [
+      {
+        "name": "search_pubmed",
+        "arguments": {
+          "query": "urban green space access mental health"
+        }
+      },
+      {
+        "name": "search_s2",
+        "arguments": {
+          "query": "urban green space access residents mental health"
+        }
+      },
+      {
+        "name": "search_openalex",
+        "arguments": {
+          "query": "urban green space access mental health public health"
+        }
+      }
+    ],
+    "error": null,
+    "valid": true,
+    "sensible": true,
+    "sources": [
+      "openalex",
+      "pubmed",
+      "s2"
+    ],
+    "seconds": 2.9
+  },
+  {
+    "question": "Remote work and employee productivity after 2020",
+    "field": "Management",
+    "calls": [
+      {
+        "name": "search_s2",
+        "arguments": {
+          "query": "remote work employee productivity after 2020"
+        }
+      },
+      {
+        "name": "search_openalex",
+        "arguments": {
+          "query": "remote work employee productivity after 2020"
+        }
+      }
+    ],
+    "error": null,
+    "valid": true,
+    "sensible": true,
+    "sources": [
+      "openalex",
+      "s2"
+    ],
+    "seconds": 2.2
+  },
+  {
+    "question": "Topological insulators for low-dissipation electronics",
+    "field": "Physics",
+    "calls": [
+      {
+        "name": "search_arxiv",
+        "arguments": {
+          "query": "topological insulators low dissipation electronics"
+        }
+      },
+      {
+        "name": "search_s2",
+        "arguments": {
+          "query": "topological insulators low dissipation electronics"
+        }
+      }
+    ],
+    "error": null,
+    "valid": true,
+    "sensible": true,
+    "sources": [
+      "arxiv",
+      "s2"
+    ],
+    "seconds": 2.2
+  }
+]
