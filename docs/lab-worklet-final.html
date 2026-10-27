@@ -113,7 +113,7 @@ ul{margin:4px 0;padding-left:20px}
 <td>CI on every push (#2). A container image with a local (Ollama) and a cloud (Gemini) profile (#23). The Doctor reads a failed run's log and the live system status, names the cause from a rule table, and applies the fix after confirmation: start Ollama, download the model, add a key, wait for the reset, or resume (#13). The budget check prevents credit failures (#7). Hosted demo: <a href="hosted-demo.md">hosted-demo.md</a> (#24).</td>
 <td class="nov">A self-healing ops agent with no guessing. The diagnosis quotes its evidence, a human confirms the fix, and the run resumes from the failed stage instead of starting again.</td>
 <td><code>.github/workflows/test.yml</code>, <code>Dockerfile</code>, <code>test_doctor.py</code> (one test per rule); the Doctor live test</td>
-<td><span class="chip ok">Built</span> <span class="chip no" data-live="doctor">Live: failed</span></td></tr>
+<td><span class="chip ok">Built</span> <span class="chip ok" data-live="doctor">Live: shown</span></td></tr>
 
 <tr><td class="wk">11</td><td>Agentic SDLC Factory</td>
 <td>The Dev Agent turns a ticket into tested code. It plans, writes a failing test, then patches with search/replace edits until the test passes. The existing tests run as guards. It works in a throwaway git worktree and never commits; a human applies the diff (#25, #26). Its demo ticket is a real feature: APA 7 citations.</td>

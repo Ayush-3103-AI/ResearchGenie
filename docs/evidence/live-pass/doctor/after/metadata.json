@@ -1,0 +1,27 @@
+{
+  "run_id": "b6f0a1b885b5454a835b7bbde322f28f",
+  "research_question": "Effects of blue light exposure on sleep quality in young adults",
+  "timings": {
+    "discovery_seconds": 0.0,
+    "writing_seconds": 1314.9,
+    "verification_seconds": 1.4,
+    "quality_assurance_seconds": 0.0
+  },
+  "overall_quality_score": 4.6,
+  "draft_status": "failed",
+  "target_words": 2200,
+  "actual_words": 1816,
+  "length_status": "on_target",
+  "evidence_limited_sections": [],
+  "broken_sections": [
+    "Conclusion",
+    "Discussion",
+    "Introduction"
+  ],
+  "duplicate_sections": [],
+  "credits_used": {
+    "Crossref": 0
+  },
+  "resumed_from_stage": "writing",
+  "final_versions": []
+}

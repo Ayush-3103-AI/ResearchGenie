@@ -1,0 +1,51 @@
+{
+  "run_id": "b6f0a1b885b5454a835b7bbde322f28f",
+  "run_directory": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\effects-of-blue-light-exposure-on-sleep-quality-in-young-adu_b6f0a1b885b5454a835b7bbde322f28f",
+  "diagnosed_at": "2026-10-27T16:24:52.627061+00:00",
+  "state": "failed",
+  "last_error": "ReadError",
+  "system": {
+    "provider": "ollama",
+    "model": "qwen3.5:9b",
+    "ollama_running": false,
+    "model_installed": null,
+    "latex": true,
+    "openalex_key": false,
+    "gemini_key": false
+  },
+  "rule": "ollama_stopped",
+  "failure_class": "model_unavailable",
+  "cause": "Ollama is not running now; the run most likely failed because it stopped mid-run.",
+  "evidence": [
+    "error: ReadError",
+    "Live check: Ollama is not answering right now."
+  ],
+  "fix": {
+    "id": "start_ollama",
+    "label": "Start Ollama, then resume the run from the failed stage.",
+    "automatic": true,
+    "interactive_only": false,
+    "resume_from": "failed"
+  },
+  "applied": true,
+  "outcome": "Fix applied; the resumed run completed.",
+  "report_path": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\effects-of-blue-light-exposure-on-sleep-quality-in-young-adu_b6f0a1b885b5454a835b7bbde322f28f\\doctor_report.json"
+}
+
+--- stderr ---
+[writing] Resuming from writing; 1 earlier stage(s) loaded from disk.
+[discovery] Discovery result loaded from disk (not re-run).
+[writing] Building outline and literature files from discovery results�
+[writing] Prepared outline and 8 literature file(s).
+[writing] Writing the evidence-grounded draft (this can take a while)�
+[writing] Section TAG-3 has unresolved issues: Paraphrase direct quotations without quotation marks.
+[writing] Introduction output violated its evidence context and was replaced.
+[writing] Conclusion output violated its evidence context and was replaced.
+[writing] Draft generation finished with errors � see warnings/errors.
+[writing] 4 section(s) written, 8 reference(s) cited.
+[verification] Verifying 8 reference(s) against Crossref/OpenAlex�
+[verification] Verification complete � 6 verified, 0 invalid, 2 unverifiable.
+[verification] 6 verified, 0 invalid, 2 unverifiable.
+[quality_assurance] Running independent citation and evidence audit�
+[quality_assurance] Audit complete � overall quality score 4.6/5.0.
+[quality_assurance] Overall quality score: 4.6/5.0.

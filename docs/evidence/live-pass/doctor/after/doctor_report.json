@@ -1,0 +1,32 @@
+{
+  "run_id": "b6f0a1b885b5454a835b7bbde322f28f",
+  "run_directory": "E:\\Agentic AI\\ResearchGenie-Full\\outputs\\effects-of-blue-light-exposure-on-sleep-quality-in-young-adu_b6f0a1b885b5454a835b7bbde322f28f",
+  "diagnosed_at": "2026-10-27T16:24:52.627061+00:00",
+  "state": "failed",
+  "last_error": "ReadError",
+  "system": {
+    "provider": "ollama",
+    "model": "qwen3.5:9b",
+    "ollama_running": false,
+    "model_installed": null,
+    "latex": true,
+    "openalex_key": false,
+    "gemini_key": false
+  },
+  "rule": "ollama_stopped",
+  "failure_class": "model_unavailable",
+  "cause": "Ollama is not running now; the run most likely failed because it stopped mid-run.",
+  "evidence": [
+    "error: ReadError",
+    "Live check: Ollama is not answering right now."
+  ],
+  "fix": {
+    "id": "start_ollama",
+    "label": "Start Ollama, then resume the run from the failed stage.",
+    "automatic": true,
+    "interactive_only": false,
+    "resume_from": "failed"
+  },
+  "applied": true,
+  "outcome": "Fix applied; the resumed run completed."
+}

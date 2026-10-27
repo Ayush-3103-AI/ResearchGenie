@@ -1,6 +1,17 @@
 {
-  "ok": false,
-  "run_id": "38119aef6a2f46d781d46091b076c136",
-  "note": "failed before Writing: The analysis exceeded the output limit. Try analyzing fewer papers.",
-  "seconds": 547
+  "ok": true,
+  "run_id": "b6f0a1b885b5454a835b7bbde322f28f",
+  "before": {
+    "state": "failed",
+    "draft_status": null
+  },
+  "rule": "ollama_stopped",
+  "cause": "Ollama is not running now; the run most likely failed because it stopped mid-run.",
+  "fix": "Start Ollama, then resume the run from the failed stage.",
+  "outcome": "Fix applied; the resumed run completed.",
+  "after": {
+    "state": "completed",
+    "draft_status": "failed"
+  },
+  "seconds": 1620
 }
