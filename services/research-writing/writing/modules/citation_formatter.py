@@ -209,7 +209,8 @@ def _apa(metadata: PaperMetadata, suffix: str) -> CitationInfo:
     if pages:
         # APA 7 renders a page range with an en dash (U+2013); a single page
         # like "e1234" has no digit-hyphen-digit to match, so it is unchanged.
-        publication += f", {_APA_PAGE_RANGE.sub('\\1\u2013\\2', pages)}"
+        en_dash_pages = _APA_PAGE_RANGE.sub("\\1\u2013\\2", pages)
+        publication += f", {en_dash_pages}"
     parts = [f"{reference_names} ({year}). {metadata.title}."]
     if publication:
         parts.append(f"{publication}.")
