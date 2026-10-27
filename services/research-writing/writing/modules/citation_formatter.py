@@ -51,11 +51,14 @@ def _expand_citation_match(match: re.Match[str]) -> list[str]:
     return [f"P{n:0{width}d}" for n in range(lo, hi + 1)]
 _AUTHOR_YEAR = re.compile(
     r"^\([^(),]+(?:\s+(?:and|&)\s+[^(),]+|\s+et\s+al\.)?,\s*"
-    r"(?:\d{4}[a-z]?|n\.d\.)\)$"
+    r"(?:\d{4}[a-z]?|n\.d\.(?:-[a-z])?)\)$"
 )
-_NARRATIVE_YEAR = re.compile(r"^.+\s\((?:\d{4}[a-z]?|n\.d\.)\)$")
+_NARRATIVE_YEAR = re.compile(r"^.+\s\((?:\d{4}[a-z]?|n\.d\.(?:-[a-z])?)\)$")
 _NUMERIC = re.compile(r"^(?:\[\d+\]|\(\d+\))$")
-_YEAR = re.compile(r"(?:\d{4}[a-z]?|n\.d\.)")
+# The optional `-[a-z]` suffix is APA 7's n.d.-a/n.d.-b (see `_apa`); the other
+# author-year styles never render it, so widening this is safe for them too.
+_YEAR = re.compile(r"(?:\d{4}[a-z]?|n\.d\.(?:-[a-z])?)")
+_APA_PAGE_RANGE = re.compile(r"(\d)-(\d)")
 
 SUPPORTED_CITATION_STYLES: tuple[CitationStyle, ...] = (
     "elsevier-harvard",
@@ -182,7 +185,10 @@ def _elsevier(metadata: PaperMetadata, suffix: str) -> CitationInfo:
 
 def _apa(metadata: PaperMetadata, suffix: str) -> CitationInfo:
     authors = _authors(metadata)
-    year = _year(metadata, suffix)
+    # APA 7's undated-work suffix is hyphenated (n.d.-a, n.d.-b), unlike the
+    # plain letter other author-year styles append to a real year (2020a) —
+    # `_year` stays shared and unchanged for those; this is apa-7 only.
+    year = f"n.d.-{suffix}" if metadata.year is None and suffix else _year(metadata, suffix)
     names = _author_year_names(authors, "&")
     rendered_authors = [f"{author.family}, {author.initials}".rstrip() for author in authors]
     reference_names = (
@@ -201,7 +207,10 @@ def _apa(metadata: PaperMetadata, suffix: str) -> CitationInfo:
     if issue:
         publication += f"({issue})"
     if pages:
-        publication += f", {pages}"
+        # APA 7 renders a page range with an en dash (U+2013); a single page
+        # like "e1234" has no digit-hyphen-digit to match, so it is unchanged.
+        en_dash_pages = _APA_PAGE_RANGE.sub("\\1\u2013\\2", pages)
+        publication += f", {en_dash_pages}"
     parts = [f"{reference_names} ({year}). {metadata.title}."]
     if publication:
         parts.append(f"{publication}.")
