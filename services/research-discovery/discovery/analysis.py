@@ -447,6 +447,12 @@ If no candidates are provided, return an empty author_flagged_gaps array.
 Overall output budget: this report is generated with a fixed maximum output size. Every field above already tells you to prefer fewer, well-evidenced entries over padding — treat that as a hard constraint, not a suggestion: if you are covering many gaps, themes, and author-flagged candidates in one report, write EACH entry more concisely (still specific and evidence-grounded) rather than risk being cut off before finishing the report. A complete, concise report is always correct over a longer one that gets truncated."""
 
 MAX_ABSTRACT_CHARS = 1600
+# Each candidate's verification search can add several papers with no shared
+# cap; with enough candidates the combined prompt pushes the analysis model
+# past its fixed output budget before it finishes the report (it has more to
+# discuss, not more room to discuss it in). Capped here, not at the search
+# step, so the UI and citation verification still see every paper found.
+MAX_VERIFICATION_PAPERS_IN_PROMPT = 12
 
 
 def _format_corpus(papers: list[Paper]) -> str:
@@ -479,9 +485,12 @@ def _format_candidates(candidates: list[dict], verification_papers: list[Paper])
             f"  Verification search found papers: {c.get('evidence_paper_ids') or 'none'}\n"
         )
     if verification_papers:
-        parts.append(f"\nVERIFICATION SEARCH RESULTS ({len(verification_papers)} additional "
-                     "papers, retrieved specifically to test the candidates above):\n")
-        parts.append(_format_corpus(verification_papers))
+        shown = verification_papers[:MAX_VERIFICATION_PAPERS_IN_PROMPT]
+        note = (f" (showing {len(shown)} of {len(verification_papers)}; kept inside the "
+                "analysis output budget)" if len(shown) < len(verification_papers) else "")
+        parts.append(f"\nVERIFICATION SEARCH RESULTS ({len(shown)} additional "
+                     f"papers, retrieved specifically to test the candidates above{note}):\n")
+        parts.append(_format_corpus(shown))
     return "\n".join(parts)
 
 
