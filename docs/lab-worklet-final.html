@@ -86,10 +86,10 @@ ul{margin:4px 0;padding-left:20px}
 <td><span class="chip ok">Built</span></td></tr>
 
 <tr><td class="wk">6</td><td>OpenClaw Runtime</td>
-<td>Our orchestrator runtime has standard progress events, FastAPI + SSE and the web UI. A durable event log per run (<code>events.jsonl</code>) keeps history across a restart (#8). OpenClaw runs ResearchGenie through the skill: a question from a chat app starts a background run, and OpenClaw sends a message with the decision brief when it finishes (#21).</td>
-<td class="nov">The same run can be watched from a terminal, a browser or a chat app, because every surface reads one event ledger.</td>
-<td><code>test_pipeline.py</code>, <code>test_api.py</code>; the chat recording (see <a href="agent-skill.md">agent-skill.md</a>)</td>
-<td><span class="chip ok">Built</span> <span class="chip part">Chat recording: pending</span></td></tr>
+<td>Our orchestrator runtime has standard progress events, FastAPI + SSE and the web UI. A durable event log per run (<code>events.jsonl</code>) keeps history across a restart (#8). The skill (<code>skills/researchgenie/</code>) is designed so a question from a chat app starts a background run, and OpenClaw sends a message with the decision brief when it finishes (#21). On the night before review, a Telegram bot was wired end to end (bot created, paired, authenticated, skill installed and confirmed visible to the model) &mdash; but the chat agent answered directly from its own knowledge instead of invoking the real pipeline, across 3 attempts including a fresh session. No code bug was found in the skill itself; it looks like a gap between OpenClaw's skill-prompting and the specific model backend in use. Recorded honestly on #33, not hidden.</td>
+<td class="nov">The same run can be watched from a terminal, a browser or (once the chat-trigger gap above is resolved) a chat app, because every surface reads one event ledger.</td>
+<td><code>test_pipeline.py</code>, <code>test_api.py</code>; <a href="agent-skill.md">agent-skill.md</a>; issue #33</td>
+<td><span class="chip ok">Built</span> <span class="chip no">Chat triggers a real run: not yet working</span></td></tr>
 
 <tr><td class="wk">7</td><td>Agentic Node Graph</td>
 <td>Research Writing is a 9-node LangGraph with conditional edges and SQLite checkpoints. The Dev Agent is a second graph: plan → failing test → patch → test, at most 3 rounds (#25).</td>
