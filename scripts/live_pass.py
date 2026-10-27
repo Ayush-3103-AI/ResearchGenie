@@ -197,8 +197,8 @@ def step_doctor() -> dict:
         time.sleep(10)
     else:
         return {"ok": False, "run_id": run_id, "note": "never reached Writing in 45 min"}
-    time.sleep(30)  # let Writing get into its model calls
-    log("stopping Ollama mid-Writing")
+    # No grace period: on a fast GPU a short run's Writing can finish in well under a minute.
+    log("stopping Ollama as Writing starts")
     if not stop_ollama():
         log("Ollama still answers (a service manager restarted it?). Stop it by hand now; waiting 2 min.")
         for _ in range(120):
@@ -207,23 +207,29 @@ def step_doctor() -> dict:
             time.sleep(1)
         else:
             return {"ok": False, "run_id": run_id, "note": "could not stop Ollama"}
+    # Writing isolates each card and section, so the run may end "failed" or
+    # "completed" with a broken draft. The Doctor has a rule for both.
     deadline = time.time() + 20 * 60
-    while time.time() < deadline and json_out(cli("status", run_id, "--json")).get("state") != "failed":
+    while time.time() < deadline and json_out(cli("status", run_id, "--json")).get("state") == "running":
         time.sleep(10)
-    failed = json_out(cli("status", run_id, "--json"))
-    if failed.get("state") != "failed":
-        return {"ok": False, "run_id": run_id, "note": f"the run did not fail: {failed.get('state')}"}
-    log(f"run failed as expected ({failed.get('failure_class')}); asking the Doctor")
-    proc = cli("doctor", run_id, "--yes", "--json", timeout=90 * 60, out=EVIDENCE / "doctor" / "doctor.txt")
-    report = json_out(proc)
+    broken = json_out(cli("result", run_id, "--json"))
     folder = run_folder(run_id)
     if folder:
-        keep(folder, EVIDENCE / "doctor" / "run")
-    final = json_out(cli("status", run_id, "--json"))
+        keep(folder, EVIDENCE / "doctor" / "before")
+    if broken.get("state") == "completed" and broken.get("draft_status") == "complete":
+        return {"ok": False, "run_id": run_id, "note": "Writing finished before Ollama was stopped; "
+                "nothing to diagnose. Run again with a longer question."}
+    log(f"run ended {broken.get('state')} (draft_status {broken.get('draft_status')}); asking the Doctor")
+    proc = cli("doctor", run_id, "--yes", "--json", timeout=90 * 60, out=EVIDENCE / "doctor" / "doctor.txt")
+    report = json_out(proc)
+    if folder:
+        keep(folder, EVIDENCE / "doctor" / "after")
+    final = json_out(cli("result", run_id, "--json"))
     return {"ok": final.get("state") == "completed" and "completed" in str(report.get("outcome", "")),
-            "run_id": run_id, "failure_class": failed.get("failure_class"),
-            "cause": report.get("cause"), "fix": (report.get("fix") or {}).get("label"),
-            "outcome": report.get("outcome"), "final_state": final.get("state")}
+            "run_id": run_id, "before": {"state": broken.get("state"), "draft_status": broken.get("draft_status")},
+            "rule": report.get("rule"), "cause": report.get("cause"),
+            "fix": (report.get("fix") or {}).get("label"), "outcome": report.get("outcome"),
+            "after": {"state": final.get("state"), "draft_status": final.get("draft_status")}}
 
 
 def _dev_agent_once(env: dict | None) -> dict:
