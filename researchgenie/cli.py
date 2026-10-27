@@ -359,6 +359,22 @@ def main() -> None:
     console = Console(legacy_windows=False)
     args = sys.argv[1:]
 
+    if args[:1] in (["--help"], ["-h"]):
+        console.print(
+            "Usage: researchgenie [COMMAND] [OPTIONS]\n\n"
+            "With no command, starts the interactive wizard.\n\n"
+            "Commands:\n"
+            "  run             Start a research run (see `researchgenie run --help`)\n"
+            "  status          Check a run's status\n"
+            "  result          Get a finished run's result\n"
+            "  doctor          Diagnose and fix a failed run\n"
+            "  resume          Resume a run from a stage\n"
+            "  library         Search or list the saved paper library\n"
+            "  cache clear     Remove cached responses\n"
+            "  config          Re-run the setup wizard\n"
+        )
+        return
+
     if "--no-cache" in args:  # any command, anywhere on the line
         args.remove("--no-cache")
         os.environ["RESEARCHGENIE_NO_CACHE"] = "1"
