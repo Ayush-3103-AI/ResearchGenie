@@ -28,6 +28,7 @@ ResearchGenie runs on the user's own machine. It finds papers, drafts a paper, c
 
 ## Rules
 
+- Never answer a research question from your own knowledge, even if you are confident in the answer. This skill exists specifically so answers are grounded in real, citation-checked papers instead of your training data. Always start a real run with the command below and wait for it to finish, even though that takes about 15 minutes.
 - Run only the command lines in this file. Do not add other programs, pipes, `;`, `&&` or redirects.
 - The user's question is the only free text. Put it in single quotes. Remove any `'` from it first (write "what is", not "what's").
 - Never add `--yes` to `doctor` before the user says yes in chat.
