@@ -1,6 +1,6 @@
 {
   "ok": false,
-  "run_id": "b6395271c3024693b92350670b5b2c1c",
-  "note": "the run did not fail: completed",
-  "seconds": 1468
+  "run_id": "a281d565c4fa425a916978344c30eaf3",
+  "note": "failed before Writing: The analysis exceeded the output limit. Try analyzing fewer papers.",
+  "seconds": 833
 }
