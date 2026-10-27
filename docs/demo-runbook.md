@@ -32,7 +32,7 @@ Turn off sleep, notifications and Windows Update restarts. Have the laptop on it
 | 0–1 | The architecture slide | "Four agents in a pipeline, plus a trend advisor, a self-healing Doctor and a Dev Agent that improves the product. All of it runs on a 9B model on this laptop." | 14 |
 | 1–3 | Web: **Find rising topics** for CS/AI/ML → the shortlist with growth numbers and gap flags → **Pick this topic** | "The ranking comes from real OpenAlex counts, not the model's opinion. A gap counts only when several papers raise it." | 13, 8 |
 | 3–5 | Type a vague question → clarify (**Use suggestion**) → live stage tracker and log → **Approve and continue** at the paper approval gate | "It asks only when the question is vague. A human approves the corpus before any writing." | 1, 2, 6, 12 |
-| 5–6 | In a terminal, end the `ollama` process → the run fails → **Diagnose & fix** → **Apply fix** → it resumes | "The Doctor quotes the evidence, names the cause from a rule table, asks before it acts, and resumes from the failed stage. It does not start over." | 10, 12 |
+| 5–6 | The moment the tracker shows **Writing**, end Ollama in a terminal (`taskkill /F /IM "ollama app.exe"` then `taskkill /F /IM ollama.exe`). Writing contains each failure, so the run finishes with a broken draft and a red banner → **Diagnose & fix** ("Ollama stopped during Writing") → **Apply fix** → Ollama starts and the draft is written again | "Writing never crashes on one bad section; it marks it. The Doctor quotes the evidence, names the cause from a rule table, asks before it acts, and rewrites from Writing. It does not start over." | 10, 12 |
 | 6–8 | The golden run: decision brief → evidence table → validation report → QA report → PDF | "Every claim traces to a paper and a DOI. Every reference is verified, invalid or unverifiable, and never repaired. QA is deterministic. The brief gives exactly one next action." | 9, 12, 7 |
 | 8–9 | Claude Desktop: "search my ResearchGenie library for fasting", "verify DOI 10.…" | "A read-only MCP server: any MCP client can use our library and DOI checker." | 5, 4 |
 | 9–10 | The chat clip: a question sent from a chat app → OpenClaw skill → the finish message with the brief | "One skill folder works in both Claude Code and OpenClaw. It only calls fixed CLI commands." | 3, 6 |
@@ -47,6 +47,7 @@ The run started at minute 3 keeps going in the background (about 15 minutes). Op
 |---|---|
 | Ollama will not start | Switch to the hosted URL (Gemini) for the live parts. Open the golden run for the outputs. |
 | Discovery stalls on a rate limit | Use the warmed demo question. Its search answers come from the cache. |
+| Ollama was ended too late and the draft is complete | Nothing to diagnose. Say so, then show `docs/evidence/live-pass/doctor/` instead. |
 | The Doctor fix does not resume | Show `doctor_report.json` and the recording in `docs/evidence/live-pass/doctor/`. |
 | Claude Desktop cannot start the MCP server | Use the full path to `researchgenie-mcp.exe` in its config, or run `npx @modelcontextprotocol/inspector researchgenie-mcp`. |
 | Everything fails | Play the fallback video, then take questions with the golden run open. |

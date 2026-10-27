@@ -2,6 +2,7 @@
 (tests/fixtures/doctor/), then the confirmation rule and the fix → resume →
 report loop through the headless CLI and the API, with every service faked."""
 
+import asyncio
 import json
 import shutil
 import sys
@@ -53,6 +54,8 @@ ROWS = [
     ("providers_exhausted", {}, None, False, "providers_exhausted", "wait_for_reset"),
     ("all_sources_failed", {}, None, False, "all_sources_failed", "resume"),
     ("no_relevant_paper", {}, None, False, "no_relevant_paper", "rephrase"),
+    ("completed", {"ollama_running": False, "model_installed": None}, {"draft_status": "partial"}, True,
+     "ollama_stopped_mid_writing", "start_ollama_rewrite"),
     ("completed", {}, {"draft_status": "partial", "broken_sections": ["Discussion"]}, True,
      "partial_draft", "resume_writing"),
     ("completed", {"latex": False}, {"draft_status": "complete"}, False, "missing_latex", "install_latex"),
@@ -71,8 +74,19 @@ def test_each_rule_row(tmp_path, fixture, system, metadata, pdf, rule, fix):
         assert f"error: {error}" in diagnosis["evidence"]
     if rule in ("providers_exhausted", "openalex_budget_no_key"):
         assert any("api.openalex.org" in line for line in diagnosis["evidence"])
-    if rule in ("ollama_stopped", "model_missing_now", "missing_latex", "partial_draft"):
+    if rule in ("ollama_stopped", "model_missing_now", "missing_latex", "partial_draft",
+                "ollama_stopped_mid_writing"):
         assert any(line.startswith(("Live check", "metadata.json")) for line in diagnosis["evidence"])
+
+
+def test_a_draft_broken_by_a_stopped_ollama_starts_it_before_rewriting(tmp_path, monkeypatch):
+    folder = _run_folder(tmp_path, "completed", {"draft_status": "partial"}, pdf=True)
+    diagnosis = doctor.diagnose(folder, {**HEALTHY, "ollama_running": False, "model_installed": None})
+    assert doctor.resume_stage(diagnosis) == "writing"
+    started = []
+    monkeypatch.setattr(om, "start_ollama_server", lambda: started.append(1) or True)
+    monkeypatch.setattr(om, "is_ollama_server_running", _async(True))
+    assert asyncio.run(doctor.apply_fix(diagnosis)) is None and started == [1]
 
 
 def test_a_known_cause_is_not_blamed_on_a_model_that_is_merely_off(tmp_path):

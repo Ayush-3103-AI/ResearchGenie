@@ -1178,6 +1178,13 @@ function showResults(r) {
     counter("Draft status", dm.draft_status, dm.draft_status === "complete" ? "ok" : dm.draft_status === "partial" ? "warn" : "bad"),
   ].join("");
 
+  // A run can finish with a broken draft (e.g. the model stopped mid-Writing):
+  // offer the Doctor here too, not only after an error event (#13).
+  if (dm.draft_status !== "complete") {
+    $("runErrorText").textContent = `The run finished, but the draft is ${dm.draft_status}.`;
+    $("runError").hidden = false; $("reconnect").hidden = true; $("resume").hidden = true; $("diagnose").hidden = false;
+  }
+
   const issues = [
     ...v.invalid_references.map((x) => ({ ...x, kind: "bad", label: "Invalid" })),
     ...v.unverifiable_references.map((x) => ({ ...x, kind: "unk", label: "Unverifiable" })),

@@ -94,6 +94,8 @@ class Fix:
 
 FIXES = {fix.id: fix for fix in (
     Fix("start_ollama", "Start Ollama, then resume the run from the failed stage."),
+    Fix("start_ollama_rewrite", "Start Ollama, then write the draft again (Writing and every "
+                                "stage after it).", resume_from="writing"),
     Fix("pull_model", "Download the model in Ollama, then resume the run from the failed stage."),
     Fix("gemini_setup", "Re-enter the Gemini API key with `researchgenie config`, then resume.",
         interactive_only=True),
@@ -175,6 +177,16 @@ RULES: tuple[Rule, ...] = (
     Rule("model_missing_now", "model_unavailable",
          "Ollama is running, but the model this run uses is not installed.",
          "pull_model", when=_model_missing, fact=_MODEL_FACT),
+    # Writing isolates each card and section, so a model that stops mid-Writing
+    # leaves a finished run with a broken draft, not an error. Rewriting it
+    # while Ollama is still down would break it the same way.
+    Rule("ollama_stopped_mid_writing", None,
+         "The run finished with an incomplete draft and Ollama is not running now: it most "
+         "likely stopped during Writing.",
+         "start_ollama_rewrite", completed=True,
+         when=lambda ctx: ctx.metadata().get("draft_status") in ("partial", "failed") and _ollama_down(ctx),
+         fact=lambda ctx: f"{_OLLAMA_FACT(ctx)} metadata.json: draft_status = "
+                          f"{ctx.metadata().get('draft_status')}"),
     Rule("partial_draft", None,
          "The run finished, but the draft is incomplete: some sections are missing or broken.",
          "resume_writing", completed=True,
@@ -293,7 +305,7 @@ async def apply_fix(diagnosis: dict[str, Any], *, key_setup: Callable[[], bool] 
         return "There is no fix for an unknown cause."
     if not fix["automatic"]:
         return f"This fix is a step for you: {fix['label']}"
-    if fix["id"] == "start_ollama":
+    if fix["id"] in ("start_ollama", "start_ollama_rewrite"):
         if not om.start_ollama_server():
             return "Ollama could not be started (is it installed and on PATH?)."
         for _ in range(wait_seconds):
