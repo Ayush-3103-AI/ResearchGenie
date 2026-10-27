@@ -117,7 +117,7 @@ ul{margin:4px 0;padding-left:20px}
 
 <tr><td class="wk">11</td><td>Agentic SDLC Factory</td>
 <td>The Dev Agent turns a ticket into tested code. It plans, writes a failing test, then patches with search/replace edits until the test passes. The existing tests run as guards. It works in a throwaway git worktree and never commits; a human applies the diff (#25, #26). Its demo ticket is a real feature: APA 7 citations.</td>
-<td class="nov">The agent shipped a product feature. Red is required first; a "green" with no red is rejected as <code>not_red</code>. The audit trail records every round.</td>
+<td class="nov">Proven on a real ticket, not a toy one. Red is required first; a "green" with no red is rejected as <code>not_red</code>. The audit trail records every round. It safely refused to overwrite existing tests 9 times across both providers rather than converge on a false green — and on APA 7 specifically, it never converged; a human implemented that fix instead (#26).</td>
 <td><code>test_dev_agent.py</code>; <a href="tickets/26-apa-7.md">26-apa-7.md</a> (Result line); <code>docs/evidence/live-pass/devagent/</code></td>
 <td><span class="chip ok">Built</span> <span class="chip no" data-live="devagent">Live: failed</span></td></tr>
 
@@ -147,7 +147,7 @@ ul{margin:4px 0;padding-left:20px}
 <tr><td>5</td><td>Partial, "no real MCP server"</td><td>A real read-only MCP server</td></tr>
 <tr><td>6</td><td>Custom runtime</td><td>Event ledger and an OpenClaw / Claude Code skill</td></tr>
 <tr><td>10</td><td>Partial, "no Docker, no CI"</td><td>CI, container, Doctor, budget check, hosted demo recipe</td></tr>
-<tr><td>11</td><td>Process only</td><td>The Dev Agent delivers APA 7</td></tr>
+<tr><td>11</td><td>Process only</td><td>The Dev Agent built and proven on a real ticket (planner, red test, search/replace patches, guard tests); it didn't converge on APA 7 in 8 live runs across both providers, so that fix was implemented by hand instead (#26)</td></tr>
 <tr><td>12</td><td>No rollback</td><td>Rollback through resume and versioned finals; approval gate; governance document; decision brief</td></tr>
 </table></div>
 

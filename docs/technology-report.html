@@ -194,7 +194,7 @@ svg .arr{fill:var(--mute)}
 <dt>Concept</dt><dd>Requirements → tested code by an agent.</dd>
 <dt>Stack</dt><dd>LangGraph, git worktrees, pytest, search/replace edits.</dd>
 <dt>Implementation</dt><dd><code>researchgenie-dev</code> plans, writes a failing test (red is required), then patches until green. The existing tests run as guards. It works in a throwaway worktree, never commits, and a human applies the diff (#25).</dd>
-<dt>Evidence</dt><dd>In the live pass, qwen reused an existing test filename and was correctly refused. The Gemini retry reached red, then hit the free-tier quota. Across 8 runs in total (5 Ollama, 3 Gemini) it got close but never reached green. APA 7 was then written by hand on <code>r3/integration</code> (<code>90e44ec</code>, not yet in <code>main</code>).</dd>
+<dt>Evidence</dt><dd>In the live pass, qwen reused an existing test filename and was correctly refused. The Gemini retry reached red, then hit the free-tier quota. Across 8 runs in total (5 Ollama, 3 Gemini) it got close but never reached green. APA 7 was then written by hand on <code>r3/integration</code> (<code>90e44ec</code>), cherry-picked and merged into <code>main</code> (#37).</dd>
 <dt>Novelty</dt><dd class="nov">Its safety rules held every time: it refused to overwrite real tests, required red before green, and committed nothing. We report the negative result as it is.</dd></dl></div>
 
 <div class="wk"><div class="wk-head"><h3>Week 12 · Safety &amp; Governance</h3><span class="chip ok">Implemented</span></div><dl>
