@@ -514,7 +514,7 @@ async def analyze_gaps(question: str, papers: list[Paper],
     last_reported = 0
     comp = None
     async for event in llm.stream_json(system=ANALYSIS_SYSTEM, user=user_message,
-                                       schema=REPORT_SCHEMA, model=m, max_tokens=8000,
+                                       schema=REPORT_SCHEMA, model=m, max_tokens=16000,
                                        think=False):
         if event["type"] == "delta":
             chars_seen += len(event["text"])
